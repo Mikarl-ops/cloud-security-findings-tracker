@@ -11,6 +11,10 @@ __pycache__/
 .mypy_cache/
 .coverage
 htmlcov/
+*.sqlite
+*.sqlite3
+*.db
+backend/src/instance/
 node_modules/
 dist/
 coverage/

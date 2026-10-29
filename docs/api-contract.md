@@ -4,7 +4,7 @@
 **Media type:** application/json; charset=utf-8  
 **Errors:** application/problem+json following [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html).
 
-This is the agreed v1 contract. Only GET /health/live is implemented in the Milestone 1 shell; all other operations are design specifications.
+This is the agreed v1 contract. Milestone 2 implements the health, authentication, findings, notes, and history routes. The React client and CI pipeline remain later milestones.
 
 ## Authentication and roles
 
@@ -62,7 +62,7 @@ A successful response is 200 and sets the session cookie:
 }
 ```
 
-Invalid credentials and inactive accounts return the same generic 401 problem. Repeated attempts are throttled and return 429 with Retry-After. The example password is explanatory text, not a usable account.
+Invalid credentials and inactive accounts return the same generic 401 problem. After ten failures for a normalized username and observed client address within fifteen minutes, further attempts return 429 with Retry-After. The example password is explanatory text, not a usable account.
 
 ### List findings
 
@@ -96,6 +96,10 @@ GET /findings?status=new&severity=high&page=1&page_size=25
 ```
 
 List responses omit raw provider payloads. Metadata exposed in detail responses is restricted to documented, allowlisted fields.
+
+### Findings summary
+
+GET /findings/summary returns `total`, `by_status`, and `by_severity`. Both count objects contain every supported status or severity key, including keys whose count is zero.
 
 ### Finding detail
 
@@ -160,6 +164,8 @@ body is plain text from 1 to 4,000 characters. Success returns 201 and the new n
 ### Pagination for notes and history
 
 Both endpoints accept page and page_size with the same defaults and limits as findings. Note bodies and audit event details are not included in findings-list responses.
+
+Notes are returned oldest first with their author username and plain-text body. History is returned oldest first with the actor username, event type, timestamp, safe event details, and request ID. A note-added event contains only the note ID, not its body.
 
 ### Health
 
