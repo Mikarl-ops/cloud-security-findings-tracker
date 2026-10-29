@@ -15,7 +15,7 @@ All records belong to one local project workspace. The first release is single-t
 | is_active | Boolean; inactive users cannot authenticate |
 | created_at, updated_at | UTC timestamps |
 
-Users are created through a local administrative setup command, not a public registration route. Passwords are never stored in plaintext. The role is read from the user record on each protected request.
+Users are created through a local administrative setup command, not a public registration route. Passwords are never stored in plaintext. The role is read from the user record on each protected request. The setup command requires a 12- to 128-character password and accepts only normalized 3- to 64-character usernames.
 
 ### Finding
 
@@ -66,7 +66,17 @@ A status-change event stores the prior and new status, version, and optional res
 
 ### ServerSession
 
-Flask-Session owns the server-side session table. Session IDs are opaque random values; session records contain only the minimum authentication and CSRF state. Configure a finite lifetime and schedule expired-session cleanup. The browser cookie does not contain the application session data.
+Flask-Session owns the server-side session lifecycle. The migration-managed `server_sessions` table stores a SHA-256 hash of the opaque random session ID, JSON session data, and an expiry timestamp. Session data contains only the minimum authentication and CSRF state plus an absolute expiry. The cookie and server record use a 30-minute sliding idle lifetime capped by an eight-hour absolute lifetime. Schedule `flask session_cleanup`; the browser cookie does not contain application session data.
+
+### AuthThrottleBucket
+
+| Field | Type and rule |
+|---|---|
+| key_hash | HMAC-SHA-256 primary key derived from normalized username, client address, and the application secret |
+| window_started_at | UTC timestamp for the current failure window |
+| failures | Non-negative failed-login count |
+
+Raw usernames and client addresses are not stored in this table. Expired buckets are removed during login requests. The current local limit is ten failures in fifteen minutes; a later public deployment must review edge rate limits and trusted proxy configuration.
 
 ## Relationships
 

@@ -38,10 +38,17 @@ The planned ECS path is not part of the local runtime, and no AWS infrastructure
 
 - The browser loads the React single-page application. Vite proxies /api during local development; a later deployment will serve the frontend and API from one origin.
 - The browser obtains an anti-CSRF token and sends it in the X-CSRFToken header for state-changing requests.
-- Flask resolves the opaque session cookie against server-side session storage. The current user and role are loaded from the user record rather than trusted from browser-provided fields.
+- Flask resolves the opaque session cookie against migration-managed PostgreSQL session storage. The database stores a hash of the cookie identifier; the current user and role are loaded from the user record rather than trusted from browser-provided fields.
 - Authorization and input validation run before business operations.
 - A finding update or note creation and its audit event are committed in one database transaction.
 - API errors use stable RFC 9457 problem details and do not reveal stack traces, credentials, or SQL information.
+
+## Milestone 2 implementation notes
+
+- The API stores only synthetic findings and exposes no event-ingestion or delete endpoints.
+- Finding status changes and note creation write their audit event in the same transaction.
+- Session payloads use strict JSON serialization; session identifiers are rotated at login and invalidated at logout.
+- Readiness checks PostgreSQL and the required migrated tables. Liveness does not depend on the database.
 
 ## Availability checks
 

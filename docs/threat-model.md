@@ -1,6 +1,6 @@
 # Threat model
 
-**Status:** design baseline for Milestone 1. Controls below are requirements; most are not implemented yet.
+**Status:** Milestone 2 local controls are implemented and tested. CI, UI protections, container controls, deployment controls, and AWS remain later work.
 
 ## Scope
 
@@ -39,8 +39,8 @@ The browser, request parameters, finding text, notes, and session cookie are unt
 
 | Threat | Impact | Required controls | Validation evidence |
 |---|---|---|---|
-| Credential guessing or account enumeration | Account takeover or disclosure that an account exists | Argon2id password hashing; generic login failures; throttling with status 429; no public self-registration; do not log passwords | Authentication tests cover wrong password, inactive account, throttling, and generic response |
-| Session fixation, theft, or replay | Unauthorized use of an analyst session | Rotate session ID after login and privilege change; server-side session store; finite idle and absolute lifetime; invalidate on logout; HttpOnly, Secure in HTTPS, SameSite=Lax, host-only cookie; never expose session IDs in logs | Session tests and cookie-attribute checks |
+| Credential guessing or account enumeration | Account takeover or disclosure that an account exists | Argon2id password hashing; generic login failures; HMAC-keyed throttling with status 429; no public self-registration; do not log passwords | Authentication tests cover wrong password, inactive account, throttling, and generic response |
+| Session fixation, theft, or replay | Unauthorized use of an analyst session | Rotate session ID after login and privilege change; server-side session store; 30-minute idle and eight-hour absolute lifetime; invalidate on logout; HttpOnly, Secure in HTTPS, SameSite=Lax, host-only cookie; never expose session IDs in logs | Session tests and cookie-attribute checks |
 | Cross-site request forgery | Victim's browser submits an unwanted state change | Flask-WTF CSRF protection for every unsafe cookie-authenticated request; send token in X-CSRFToken; check Origin where present; SameSite is defense in depth | Missing, invalid, and valid token tests for login, logout, status, and note operations |
 | Broken object or function authorization | Viewer changes a finding or accesses an unpermitted record | Enforce analyst/viewer authorization in Flask on every endpoint and object; never rely on React controls | Direct API tests for viewer writes, missing session, and each role |
 | Stored cross-site scripting through finding or note text | Script runs in another user's browser | Treat stored text as untrusted; render as text; avoid dangerouslySetInnerHTML; restrict response content types; add a suitable Content Security Policy when serving the UI | Frontend tests with HTML-like text; header check in deployment milestone |
@@ -63,6 +63,7 @@ The browser, request parameters, finding text, notes, and session cookie are unt
 - A compromised analyst account can perform analyst actions; MFA and identity federation are out of scope for the local MVP.
 - The application has no independent security boundary between two customer organizations; multi-tenancy is explicitly excluded.
 - A local single-node database is not a production backup or availability strategy.
+- Login throttling uses the server-observed remote address; any reverse-proxy deployment must define and test trusted-proxy handling before relying on the address in rate-limit keys.
 - Dependency and CI controls, container hardening, optional AWS IAM/network design, and operational alerting are later milestones.
 - No application in this milestone is suitable for public exposure. Public deployment requires the complete authentication, authorization, CSRF, TLS, logging, rate-limit, secret, and operational controls to be implemented and reviewed.
 
