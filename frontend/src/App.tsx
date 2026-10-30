@@ -1,39 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
-import { demoFindings, demoHistoryByFinding, demoNotesByFinding, demoSummary } from "./demoData";
-import type { Finding, FindingSeverity, FindingStatus } from "./types";
+import { api, ApiError } from "./api";
+import { AuthScreen } from "./components/AuthScreen";
+import { FindingDetails } from "./components/FindingDetails";
+import { FindingsTable, type FindingFiltersView } from "./components/FindingsTable";
+import type {
+  AuditEvent,
+  Finding,
+  FindingListItem,
+  FindingNote,
+  FindingStatus,
+  FindingSummary,
+  SessionUser,
+} from "./types";
 import "./styles.css";
 
-type FilterValue<T extends string> = T | "all";
+type AuthState = "checking" | "anonymous" | "authenticated" | "unavailable";
 
-const statusLabels: Record<FindingStatus, string> = {
-  new: "New",
-  investigating: "Investigating",
-  resolved: "Resolved",
-  dismissed: "Dismissed",
+const emptySummary: FindingSummary = {
+  total: 0,
+  by_status: { new: 0, investigating: 0, resolved: 0, dismissed: 0 },
+  by_severity: { critical: 0, high: 0, medium: 0, low: 0, informational: 0 },
 };
 
-const severityLabels: Record<FindingSeverity, string> = {
-  critical: "Critical",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-  informational: "Info",
-};
-
-const dateFormatter = new Intl.DateTimeFormat("en", {
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "UTC",
-  timeZoneName: "short",
-});
-
-function formatDate(value: string) {
-  return dateFormatter.format(new Date(value));
+function friendlyError(error: unknown) {
+  if (error instanceof ApiError) return error.message;
+  return "The service could not be reached. Check that the local API is running and try again.";
 }
 
-function Icon({ name }: { name: "overview" | "findings" | "chevron" | "close" }) {
+function Icon({ name }: { name: "overview" | "findings" }) {
   const paths = {
     overview: (
       <>
@@ -49,8 +43,6 @@ function Icon({ name }: { name: "overview" | "findings" | "chevron" | "close" })
         <path d="m8.5 12 2.2 2.2 4.8-5" />
       </>
     ),
-    chevron: <path d="m9 18 6-6-6-6" />,
-    close: <path d="m6 6 12 12M18 6 6 18" />,
   };
 
   return (
@@ -69,189 +61,304 @@ function Icon({ name }: { name: "overview" | "findings" | "chevron" | "close" })
   );
 }
 
-function FindingRow({ finding, onOpen }: { finding: Finding; onOpen: (finding: Finding) => void }) {
-  return (
-    <tr>
-      <td className="finding-cell">
-        <button
-          aria-label={`View ${finding.title}`}
-          className="finding-link"
-          onClick={() => onOpen(finding)}
-          type="button"
-        >
-          {finding.title}
-        </button>
-        <span className="finding-meta">Observed {formatDate(finding.observed_at)}</span>
-      </td>
-      <td>
-        <span className={`severity severity-${finding.severity}`}>
-          <span className="severity-dot" />
-          {severityLabels[finding.severity]}
-        </span>
-      </td>
-      <td>
-        <span className={`status status-${finding.status}`}>{statusLabels[finding.status]}</span>
-      </td>
-      <td className="source-cell">{finding.source}</td>
-      <td className="date-cell">{formatDate(finding.updated_at)}</td>
-      <td className="action-cell">
-        <button
-          aria-label={`Open details for ${finding.title}`}
-          className="icon-button row-action"
-          onClick={() => onOpen(finding)}
-          type="button"
-        >
-          <Icon name="chevron" />
-        </button>
-      </td>
-    </tr>
-  );
-}
-
-function FindingDetails({ finding, onClose }: { finding: Finding; onClose: () => void }) {
-  const notes = demoNotesByFinding[finding.id] ?? [];
-  const history = demoHistoryByFinding[finding.id] ?? [];
-
-  return (
-    <div className="drawer-layer">
-      <button aria-label="Close finding details" className="drawer-backdrop" onClick={onClose} type="button" />
-      <aside aria-labelledby="detail-title" aria-modal="true" className="detail-drawer" role="dialog">
-        <div className="drawer-header">
-          <div>
-            <p className="eyebrow">Finding details</p>
-            <h2 id="detail-title">Investigation</h2>
-          </div>
-          <button aria-label="Close finding details" className="icon-button" onClick={onClose} type="button">
-            <Icon name="close" />
-          </button>
-        </div>
-
-        <div className="drawer-content">
-          <div className="detail-title-row">
-            <span className={`severity severity-${finding.severity}`}>
-              <span className="severity-dot" />
-              {severityLabels[finding.severity]} severity
-            </span>
-            <span className={`status status-${finding.status}`}>{statusLabels[finding.status]}</span>
-          </div>
-          <h3 className="detail-finding-title">{finding.title}</h3>
-          <p className="detail-description">{finding.description}</p>
-
-          <section className="detail-section">
-            <h3>Evidence summary</h3>
-            <p>{finding.evidence_summary}</p>
-          </section>
-
-          <section className="detail-section">
-            <h3>Source information</h3>
-            <dl className="detail-grid">
-              <div>
-                <dt>Source</dt>
-                <dd>{finding.source}</dd>
-              </div>
-              <div>
-                <dt>Observed</dt>
-                <dd>{formatDate(finding.observed_at)}</dd>
-              </div>
-              {Object.entries(finding.metadata).map(([key, value]) => (
-                <div key={key}>
-                  <dt>{key.replaceAll("_", " ")}</dt>
-                  <dd>{String(value)}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-
-          <section className="detail-section">
-            <div className="section-heading-row">
-              <h3>Investigation notes</h3>
-              <span className="section-count">{notes.length}</span>
-            </div>
-            {notes.length ? (
-              <div className="note-list">
-                {notes.map((note) => (
-                  <article className="note-card" key={note.id}>
-                    <div className="note-meta">
-                      <strong>{note.author}</strong>
-                      <time dateTime={note.created_at}>{formatDate(note.created_at)}</time>
-                    </div>
-                    <p>{note.body}</p>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p className="empty-copy">No notes have been added to this finding.</p>
-            )}
-          </section>
-
-          <section className="detail-section">
-            <div className="section-heading-row">
-              <h3>Activity history</h3>
-              <span className="section-count">{history.length}</span>
-            </div>
-            {history.length ? (
-              <ol className="timeline">
-                {history.map((event) => (
-                  <li key={event.id}>
-                    <span className="timeline-marker" />
-                    <div>
-                      <strong>{event.actor}</strong>
-                      <p>
-                        {event.event_type === "finding.status_changed"
-                          ? `Changed status to ${String(event.details.to_status ?? "updated")}`
-                          : "Added an investigation note"}
-                      </p>
-                      <time dateTime={event.occurred_at}>{formatDate(event.occurred_at)}</time>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="empty-copy">No activity has been recorded yet.</p>
-            )}
-          </section>
-        </div>
-      </aside>
-    </div>
-  );
-}
-
 export function App() {
-  const [statusFilter, setStatusFilter] = useState<FilterValue<FindingStatus>>("all");
-  const [severityFilter, setSeverityFilter] = useState<FilterValue<FindingSeverity>>("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
+  const [authState, setAuthState] = useState<AuthState>("checking");
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [loginBusy, setLoginBusy] = useState(false);
+  const [summary, setSummary] = useState(emptySummary);
+  const [findings, setFindings] = useState<FindingListItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [filters, setFilters] = useState<FindingFiltersView>({
+    status: "all",
+    severity: "all",
+    source: "all",
+  });
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [findingDetail, setFindingDetail] = useState<Finding | null>(null);
+  const [notes, setNotes] = useState<FindingNote[]>([]);
+  const [history, setHistory] = useState<AuditEvent[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [mutationBusy, setMutationBusy] = useState(false);
+  const [detailReload, setDetailReload] = useState(0);
+
+  const queryFilters = useMemo(
+    () => ({
+      page,
+      page_size: 25,
+      ...(filters.status === "all" ? {} : { status: filters.status }),
+      ...(filters.severity === "all" ? {} : { severity: filters.severity }),
+      ...(filters.source === "all" ? {} : { source: filters.source }),
+    }),
+    [filters, page],
+  );
 
   useEffect(() => {
-    if (!selectedFinding) return;
+    let active = true;
+    api.getSession()
+      .then((currentUser) => {
+        if (!active) return;
+        setUser(currentUser);
+        setAuthState("authenticated");
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        if (error instanceof ApiError && error.status === 401) {
+          setUser(null);
+          setAuthState("anonymous");
+        } else {
+          setAuthError(friendlyError(error));
+          setAuthState("unavailable");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authState !== "authenticated" || !user) return;
+    let active = true;
+    Promise.all([api.getSummary(), api.listFindings(queryFilters)])
+      .then(([newSummary, result]) => {
+        if (!active) return;
+        setSummary(newSummary);
+        setFindings(result.items);
+        setTotal(result.total);
+        setPages(result.pages);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        if (error instanceof ApiError && error.status === 401) {
+          setUser(null);
+          setAuthState("anonymous");
+          setAuthError("Your session has expired. Sign in again to continue.");
+        } else {
+          setDashboardError(friendlyError(error));
+        }
+      })
+      .finally(() => {
+        if (active) setDashboardLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [authState, queryFilters, refreshToken, user]);
+
+  useEffect(() => {
+    if (!selectedId || authState !== "authenticated") return;
+    let active = true;
+    Promise.all([api.getFinding(selectedId), api.listNotes(selectedId), api.listHistory(selectedId)])
+      .then(([finding, notePage, historyPage]) => {
+        if (!active) return;
+        setFindingDetail(finding);
+        setNotes(notePage.items);
+        setHistory(historyPage.items);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        if (error instanceof ApiError && error.status === 401) {
+          setUser(null);
+          setAuthState("anonymous");
+          setSelectedId(null);
+          setAuthError("Your session has expired. Sign in again to continue.");
+        } else {
+          setDetailError(friendlyError(error));
+        }
+      })
+      .finally(() => {
+        if (active) setDetailLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [authState, detailReload, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedFinding(null);
+      if (event.key === "Escape") setSelectedId(null);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [selectedFinding]);
+  }, [selectedId]);
 
-  const sources = useMemo(
-    () => Array.from(new Set(demoFindings.map((finding) => finding.source))).sort(),
-    [],
-  );
+  async function retrySession() {
+    setAuthState("checking");
+    setAuthError(null);
+    try {
+      const currentUser = await api.getSession();
+      setUser(currentUser);
+      setAuthState("authenticated");
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        setUser(null);
+        setAuthState("anonymous");
+      } else {
+        setAuthError(friendlyError(error));
+        setAuthState("unavailable");
+      }
+    }
+  }
 
-  const filteredFindings = useMemo(
-    () =>
-      demoFindings.filter(
-        (finding) =>
-          (statusFilter === "all" || finding.status === statusFilter) &&
-          (severityFilter === "all" || finding.severity === severityFilter) &&
-          (sourceFilter === "all" || finding.source === sourceFilter),
-      ),
-    [severityFilter, sourceFilter, statusFilter],
-  );
+  async function handleLogin(username: string, password: string) {
+    setLoginBusy(true);
+    setAuthError(null);
+    setDashboardLoading(true);
+    setDashboardError(null);
+    try {
+      const authenticatedUser = await api.login(username, password);
+      setUser(authenticatedUser);
+      setAuthState("authenticated");
+      return true;
+    } catch (error) {
+      setAuthError(friendlyError(error));
+      return false;
+    } finally {
+      setLoginBusy(false);
+    }
+  }
 
-  const clearFilters = () => {
-    setStatusFilter("all");
-    setSeverityFilter("all");
-    setSourceFilter("all");
-  };
+  async function handleLogout() {
+    setDashboardError(null);
+    try {
+      await api.logout();
+      setUser(null);
+      setSelectedId(null);
+      setAuthError(null);
+      setAuthState("anonymous");
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        setUser(null);
+        setAuthState("anonymous");
+        setAuthError("Your session has expired. Sign in again to continue.");
+      } else {
+        setDashboardError(friendlyError(error));
+      }
+    }
+  }
+
+  function handleFilterChange(nextFilters: FindingFiltersView) {
+    setDashboardLoading(true);
+    setDashboardError(null);
+    setFilters(nextFilters);
+    setPage(1);
+  }
+
+  function handlePageChange(nextPage: number) {
+    setDashboardLoading(true);
+    setDashboardError(null);
+    setPage(nextPage);
+  }
+
+  function openFinding(findingId: string) {
+    setFindingDetail(null);
+    setNotes([]);
+    setHistory([]);
+    setDetailError(null);
+    setMutationError(null);
+    setDetailLoading(true);
+    setSelectedId(findingId);
+  }
+
+  function closeFinding() {
+    setSelectedId(null);
+    setFindingDetail(null);
+    setMutationError(null);
+  }
+
+  async function handleStatusChange(status: FindingStatus, reason: string | null) {
+    if (!findingDetail) return false;
+    setMutationBusy(true);
+    setMutationError(null);
+    setDashboardLoading(true);
+    try {
+      const updated = await api.changeStatus(findingDetail.id, status, findingDetail.version, reason);
+      setFindingDetail(updated);
+      setDetailLoading(true);
+      setDetailError(null);
+      setRefreshToken((token) => token + 1);
+      setDetailReload((revision) => revision + 1);
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        setUser(null);
+        setAuthState("anonymous");
+        setSelectedId(null);
+        setAuthError("Your session has expired. Sign in again to continue.");
+      } else {
+        setMutationError(friendlyError(error));
+        if (error instanceof ApiError && error.status === 409) {
+          setDetailLoading(true);
+          setDetailError(null);
+          setDetailReload((revision) => revision + 1);
+        }
+      }
+      return false;
+    } finally {
+      setMutationBusy(false);
+    }
+  }
+
+  async function handleAddNote(body: string) {
+    if (!findingDetail) return false;
+    setMutationBusy(true);
+    setMutationError(null);
+    setDashboardLoading(true);
+    try {
+      await api.addNote(findingDetail.id, body);
+      setDetailLoading(true);
+      setDetailError(null);
+      setDetailReload((revision) => revision + 1);
+      setRefreshToken((token) => token + 1);
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        setUser(null);
+        setAuthState("anonymous");
+        setSelectedId(null);
+        setAuthError("Your session has expired. Sign in again to continue.");
+      } else {
+        setMutationError(friendlyError(error));
+      }
+      return false;
+    } finally {
+      setMutationBusy(false);
+    }
+  }
+
+  if (authState === "checking") {
+    return <main aria-live="polite" className="auth-screen"><p className="loading-details">Checking your session…</p></main>;
+  }
+
+  if (authState === "unavailable") {
+    return (
+      <main className="auth-screen">
+        <section aria-labelledby="service-title" className="auth-card service-card">
+          <span className="brand-mark">S</span>
+          <h1 id="service-title">Tracker API unavailable</h1>
+          <p>{authError}</p>
+          <button className="primary-button login-button" onClick={() => void retrySession()} type="button">Try again</button>
+        </section>
+      </main>
+    );
+  }
+
+  if (authState === "anonymous" || !user) {
+    return <AuthScreen busy={loginBusy} error={authError} onLogin={handleLogin} />;
+  }
+
+  const sources = Array.from(
+    new Set([...findings.map((finding) => finding.source), ...(filters.source === "all" ? [] : [filters.source])]),
+  ).sort();
+  const userInitials = user.username.slice(0, 2).toUpperCase();
 
   return (
     <div className="app-shell">
@@ -282,7 +389,7 @@ export function App() {
           <a aria-current="page" className="nav-item active" href="#findings">
             <Icon name="findings" />
             Findings
-            <span className="nav-count">{demoSummary.total}</span>
+            <span className="nav-count">{summary.total}</span>
           </a>
         </nav>
 
@@ -294,7 +401,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
           <span className="environment-dot" />
-          Local preview
+          Connected to local API
           <span className="build-version">v0.2</span>
         </div>
       </aside>
@@ -310,11 +417,12 @@ export function App() {
             <span className="sample-badge"><span /> Synthetic data</span>
             <span aria-hidden="true" className="topbar-divider" />
             <div className="user-chip">
-              <span className="user-avatar">DA</span>
+              <span className="user-avatar">{userInitials}</span>
               <span className="user-copy">
-                <strong>Demo analyst</strong>
-                <small>Analyst</small>
+                <strong>{user.username}</strong>
+                <small>{user.role === "analyst" ? "Analyst" : "Read-only viewer"}</small>
               </span>
+              <button className="logout-button" onClick={() => void handleLogout()} type="button">Sign out</button>
             </div>
           </div>
         </header>
@@ -328,7 +436,7 @@ export function App() {
             </div>
             <div className="updated-indicator">
               <span className="pulse-dot" />
-              Preview environment
+              API connected
             </div>
           </div>
 
@@ -338,7 +446,7 @@ export function App() {
                 <span className="summary-label">Total findings</span>
                 <span className="summary-icon icon-violet"><Icon name="overview" /></span>
               </div>
-              <strong className="summary-value">{demoSummary.total}</strong>
+              <strong className="summary-value">{dashboardLoading && summary.total === 0 ? "—" : summary.total}</strong>
               <span className="summary-footnote">Across synthetic sources</span>
             </article>
             <article className="summary-card critical-card">
@@ -346,7 +454,7 @@ export function App() {
                 <span className="summary-label">Critical</span>
                 <span className="summary-icon icon-red"><span className="summary-alert">!</span></span>
               </div>
-              <strong className="summary-value">{demoSummary.by_severity.critical}</strong>
+              <strong className="summary-value">{summary.by_severity.critical}</strong>
               <span className="summary-footnote">Needs immediate review</span>
             </article>
             <article className="summary-card investigating-card">
@@ -354,7 +462,7 @@ export function App() {
                 <span className="summary-label">Investigating</span>
                 <span className="summary-icon icon-amber"><span className="summary-ring" /></span>
               </div>
-              <strong className="summary-value">{demoSummary.by_status.investigating}</strong>
+              <strong className="summary-value">{summary.by_status.investigating}</strong>
               <span className="summary-footnote">Active analyst reviews</span>
             </article>
             <article className="summary-card resolved-card">
@@ -362,105 +470,59 @@ export function App() {
                 <span className="summary-label">Resolved findings</span>
                 <span className="summary-icon icon-green"><span className="summary-check">✓</span></span>
               </div>
-              <strong className="summary-value">{demoSummary.by_status.resolved}</strong>
+              <strong className="summary-value">{summary.by_status.resolved}</strong>
               <span className="summary-footnote">Closed with a recorded reason</span>
             </article>
           </section>
 
-          <section aria-labelledby="findings-title" className="findings-panel">
-            <div className="panel-heading">
-              <div>
-                <div className="panel-title-row">
-                  <h2 id="findings-title">Recent findings</h2>
-                  <span className="result-count">{filteredFindings.length}</span>
-                </div>
-                <p>Prioritized events from your monitored cloud environment.</p>
-              </div>
-              <span className="table-context"><span className="context-dot" /> Last 24 hours</span>
-            </div>
-
-            <div className="filter-bar">
-              <div className="filter-caption">
-                <span className="filter-symbol">≡</span>
-                <span>Filter by</span>
-              </div>
-              <label className="filter-select">
-                <span className="sr-only">Status</span>
-                <select
-                  aria-label="Status"
-                  onChange={(event) => setStatusFilter(event.target.value as FilterValue<FindingStatus>)}
-                  value={statusFilter}
-                >
-                  <option value="all">All statuses</option>
-                  {Object.entries(statusLabels).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="filter-select">
-                <span className="sr-only">Severity</span>
-                <select
-                  aria-label="Severity"
-                  onChange={(event) => setSeverityFilter(event.target.value as FilterValue<FindingSeverity>)}
-                  value={severityFilter}
-                >
-                  <option value="all">All severities</option>
-                  {Object.entries(severityLabels).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="filter-select">
-                <span className="sr-only">Source</span>
-                <select aria-label="Source" onChange={(event) => setSourceFilter(event.target.value)} value={sourceFilter}>
-                  <option value="all">All sources</option>
-                  {sources.map((source) => <option key={source} value={source}>{source}</option>)}
-                </select>
-              </label>
-              <button className="clear-filters" onClick={clearFilters} type="button">Clear filters</button>
-            </div>
-
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">Finding</th>
-                    <th scope="col">Severity</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Source</th>
-                    <th scope="col">Last updated</th>
-                    <th scope="col"><span className="sr-only">Actions</span></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredFindings.map((finding) => (
-                    <FindingRow finding={finding} key={finding.id} onOpen={setSelectedFinding} />
-                  ))}
-                </tbody>
-              </table>
-              {filteredFindings.length === 0 && (
-                <div className="empty-table">
-                  <span className="empty-table-icon">⌕</span>
-                  <strong>No findings match these filters</strong>
-                  <p>Try broadening your search criteria.</p>
-                  <button className="text-button" onClick={clearFilters} type="button">Clear filters</button>
-                </div>
-              )}
-            </div>
-            <div className="table-footer">
-              <span>Showing <strong>{filteredFindings.length}</strong> of <strong>{demoSummary.total}</strong> findings</span>
-              <span>Sample records are clearly identified as synthetic.</span>
-            </div>
-          </section>
+          <FindingsTable
+            error={dashboardError}
+            filters={filters}
+            findings={findings}
+            loading={dashboardLoading}
+            onFiltersChange={handleFilterChange}
+            onOpen={openFinding}
+            onPageChange={handlePageChange}
+            onRetry={() => {
+              setDashboardLoading(true);
+              setDashboardError(null);
+              setRefreshToken((token) => token + 1);
+            }}
+            page={page}
+            pageSize={queryFilters.page_size}
+            pages={pages}
+            sources={sources}
+            total={total}
+          />
 
           <footer className="page-footer">
             <span>Cloud Security Findings Tracker</span>
-            <span>Local development preview · No live cloud telemetry</span>
+            <span>Local development · Synthetic events only</span>
           </footer>
         </div>
       </main>
 
-      {selectedFinding && <FindingDetails finding={selectedFinding} onClose={() => setSelectedFinding(null)} />}
+      {selectedId && (
+        <FindingDetails
+          key={`${selectedId}-${findingDetail?.version ?? "loading"}`}
+          busy={mutationBusy}
+          canUpdate={user.role === "analyst"}
+          error={mutationError ?? detailError}
+          finding={findingDetail}
+          history={history}
+          loading={detailLoading}
+          notes={notes}
+          onAddNote={handleAddNote}
+          onChangeStatus={handleStatusChange}
+          onClose={closeFinding}
+          onRetry={() => {
+            setMutationError(null);
+            setDetailLoading(true);
+            setDetailError(null);
+            setDetailReload((revision) => revision + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

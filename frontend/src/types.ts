@@ -19,6 +19,11 @@ export interface Finding {
   created_at: string;
 }
 
+export type FindingListItem = Pick<
+  Finding,
+  "id" | "title" | "source" | "severity" | "status" | "observed_at" | "updated_at" | "version"
+>;
+
 export interface PageResponse<T> {
   items: T[];
   page: number;
