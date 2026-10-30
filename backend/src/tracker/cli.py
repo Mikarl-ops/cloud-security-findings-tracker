@@ -62,6 +62,8 @@ def _validated_seed_records(path: Path) -> list[dict]:
             value = record[field]
             if not isinstance(value, str) or not value.strip() or len(value) > limit:
                 raise click.ClickException(f"{prefix} has an invalid {field}.")
+        if not record["source_event_id"].startswith("synthetic-"):
+            raise click.ClickException(f"{prefix} must use a synthetic source event ID.")
         source = record["source"]
         if not isinstance(source, str) or not SOURCE_PATTERN.fullmatch(source):
             raise click.ClickException(f"{prefix} has an invalid source identifier.")
