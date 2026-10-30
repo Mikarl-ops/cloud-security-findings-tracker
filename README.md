@@ -2,7 +2,7 @@
 
 A small portfolio application for reviewing synthetic cloud security findings. It connects a React and TypeScript dashboard to a Flask API and PostgreSQL, with session authentication, analyst and viewer roles, investigation notes, and an audit history.
 
-**Milestone 1 is merged.** Milestone 2 adds the Flask API, PostgreSQL schema and migrations, server-managed sessions, role checks, finding status changes, investigation notes, and audit history. The React workflows and complete API-plus-database Compose environment remain later work.
+The Flask API, PostgreSQL schema and migrations, server-managed sessions, role checks, finding status changes, investigation notes, audit history, React dashboard, and local Compose environment are implemented. Pull-request CI, security checks, and deployment remain future work.
 
 The project uses synthetic sample data only. It does not ingest real telemetry, perform automated containment, or require AWS. The optional AWS target is ECS Fargate; no AWS resources are created by this repository foundation.
 
@@ -26,7 +26,7 @@ docs/                    Architecture, API, threat model, and decisions
 frontend/                React + TypeScript + Vite application
 infra/terraform/         Reserved for the optional later AWS milestone
 scripts/                 Local validation helpers
-docker-compose.yml       Local PostgreSQL service
+docker-compose.yml       Local PostgreSQL, API, and frontend services
 ```
 
 The API includes the liveness and readiness checks, session login/logout, role-protected finding reads and analyst writes, bounded filtering and pagination, note creation, and audit history. Only synthetic findings belong in this project. CI security checks, Terraform, and deployment instructions remain later milestones.
@@ -35,32 +35,32 @@ The API includes the liveness and readiness checks, session login/logout, role-p
 
 - Python 3.12
 - Node.js 24 LTS and npm
-- Docker Engine with Docker Compose v2 for the local PostgreSQL service
+- Docker Engine with Docker Compose v2 for the local development stack
 - Git
 
 The design baseline is Python 3.12.14, Node.js 24 LTS, and PostgreSQL 18.6. Use the current security patch in each supported release line. Runtime choices were checked against the official release and support pages on 2026-10-28.
 
-## Start the local API
+## Start the local application
 
-1. Copy `.env.example` to `.env`. Replace the database password and secret key with random local-only values; keep the password in `POSTGRES_PASSWORD` and `DATABASE_URL` consistent.
-2. Start PostgreSQL: `docker compose up -d db`.
-3. In `backend/`, create and activate a Python virtual environment, install the pinned dependencies with `python -m pip install -r requirements.lock`, then install the local package with `python -m pip install --no-deps --no-build-isolation -e .`.
-4. Apply the reviewed schema migrations with `python -m flask --app tracker:create_app db upgrade`.
-5. Create a local analyst account with `python -m flask --app tracker:create_app create-user analyst --role analyst`. The password is entered interactively and is not echoed.
-6. Run backend checks with `python -m pytest` and `ruff check .`.
-7. In `frontend/`, run `npm ci`, then `npm run dev` or `npm test`.
+1. Copy `.env.example` to `.env`. Set `POSTGRES_PASSWORD` to a random hex value and `SECRET_KEY` to a separate random value. For each value, run `python -c "import secrets; print(secrets.token_hex(32))"` and copy the output into `.env`. These values are local only.
+2. Build and start PostgreSQL, the API, and the dashboard with `docker compose up --build`.
+3. Create the first local analyst account: `docker compose exec api flask --app tracker:create_app create-user analyst --role analyst`. The password is entered interactively and is not echoed.
+4. Open <http://localhost:5173> and sign in. The API is also reachable at <http://localhost:5000> for local checks.
+5. Stop the services with `docker compose down`. To also remove the local database volume and its data, use `docker compose down --volumes`.
 
-To run the API, activate the backend virtual environment and run `flask --app tracker:create_app run --host 127.0.0.1` from `backend/`. The API requires the local database migration and environment values above. The frontend remains a placeholder until Milestone 3.
+The API container applies database migrations and loads the documented synthetic findings on startup. The seed command is idempotent and does not remove or rewrite existing findings. For a non-container backend workflow, see [backend setup](backend/README.md).
+
+The Vite development server proxies `/api` requests to the API, so the browser uses same-origin session cookies and CSRF protection during local development.
 
 ## Safety and data handling
 
-Never commit `.env`, passwords, session secrets, real findings, or production telemetry. The tracked `.env.example` contains placeholders only. Do not run Terraform apply, create AWS resources, or deploy the application as part of Milestone 2.
+Never commit `.env`, passwords, session secrets, real findings, or production telemetry. The tracked `.env.example` contains placeholders only. The local stack creates no AWS resources and does not deploy the application.
 
 ## Project schedule
 
 1. Design and foundation — merged
-2. Flask API, PostgreSQL migrations, findings, notes, audit, sessions, and authorization — implemented locally
-3. Dashboard and complete local Docker Compose workflow
+2. Flask API, PostgreSQL migrations, findings, notes, audit, sessions, and authorization — merged
+3. Dashboard and local Docker Compose workflow — implemented locally
 4. Pull-request CI, tests, and security checks
 5. Terraform and optional ECS Fargate deployment
 6. Security scenarios, documentation, and portfolio walkthrough

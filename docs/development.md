@@ -33,7 +33,7 @@ Do not add feature code for a later milestone without updating the scope and dec
 
 - Copy .env.example to .env; .env is ignored by Git.
 - Use distinct local-only credentials. Never put passwords, API tokens, secret keys, real telemetry, or personal data in tracked files.
-- Production secret management and AWS identity are not configured by this milestone.
+- Production secret management and AWS identity are not configured by the local development stack.
 - Do not paste secrets into issue or pull-request descriptions, test output, or logs.
 
 ## Quality checks
