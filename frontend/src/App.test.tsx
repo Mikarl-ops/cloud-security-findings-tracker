@@ -134,6 +134,27 @@ beforeEach(() => {
 });
 
 describe("API-connected findings workbench", () => {
+  it("renders HTML-like finding and note content as plain text", async () => {
+    const finding = serverFindings[0];
+    finding.title = '<img data-ci-xss src=x onerror="alert(1)">';
+    finding.description = '<script data-ci-xss>alert(1)</script>';
+    const noteBody = '<a data-ci-xss href="javascript:alert(1)">open</a>';
+    serverNotes[finding.id] = [{
+      id: "synthetic-xss-note",
+      author: analyst.username,
+      body: noteBody,
+      created_at: finding.observed_at,
+    }];
+    const { container } = render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: `View ${finding.title}` }));
+    await screen.findByRole("heading", { name: finding.title });
+    const dialog = screen.getByRole("dialog", { name: "Investigation" });
+    expect(await within(dialog).findByText(finding.description)).toBeInTheDocument();
+    expect(await within(dialog).findByText(noteBody)).toBeInTheDocument();
+    expect(container.querySelector("[data-ci-xss]")).toBeNull();
+  });
+
   it("shows the authenticated dashboard and server summary", async () => {
     render(<App />);
 

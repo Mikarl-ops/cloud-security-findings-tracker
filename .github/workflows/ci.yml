@@ -38,7 +38,7 @@ jobs:
           python -m pip check
       - name: Lint and test the API
         run: |
-          python -m ruff check src tests start_dev.py ../scripts
+          python -m ruff check --config pyproject.toml src tests start_dev.py ../scripts
           python -m pytest -q
 
   frontend:
