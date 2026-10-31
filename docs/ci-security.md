@@ -7,12 +7,12 @@ GitHub Actions runs the `Quality` and `Security` workflows for pull requests int
 | Check name | What fails the check |
 |---|---|
 | Backend tests and lint | Ruff findings, failing pytest cases, dependency conflicts, or installation errors |
-| Frontend tests and build | ESLint, TypeScript, Vitest, installation, or build errors |
+| Frontend tests and build | Invalid dependency trees, ESLint discovery/rule regressions, TypeScript, Vitest, installation, or build errors |
 | API contract and workflow validation | Invalid contract invariants, broken local documentation links, tracked environment files, or actionlint errors |
 | PostgreSQL and Compose smoke | Image/startup failures, schema drift, non-idempotent seeding, or a failed HTTP workflow assertion |
 | Python static analysis | Bandit findings with severity and confidence both medium or higher |
 | Python dependency audit | Any known advisory in the application or scanner lock, or incomplete dependency collection |
-| Frontend dependency audit | High or critical advisories, or an audit/registry error; lower findings remain visible in the job log |
+| Frontend dependency audit | Moderate, high, or critical advisories, or an audit/registry error; low findings remain visible in the job log |
 | Repository secret scan | Any Gitleaks detection across all fetched Git history; output is fully redacted |
 | Container scan (api) | High or critical OS or package vulnerabilities, including unfixed findings, or scanner/build errors |
 | Container scan (frontend) | The same gate for the frontend development image |
@@ -51,7 +51,7 @@ python -m ruff check --config pyproject.toml src tests start_dev.py ../scripts
 python -m pytest -q
 ```
 
-From `frontend/`, run `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm audit --audit-level=high`.
+From `frontend/`, run `npm ci`, `npm ls`, `npm run lint`, `npm run lint:config`, `npm run typecheck`, `npm test`, `npm run build`, and `npm audit --audit-level=moderate`.
 
 From the repository root, use a separate activated Python 3.12 virtual environment for scanner dependencies:
 
@@ -67,13 +67,19 @@ Install the workflow-pinned versions of actionlint, Gitleaks, and Trivy using th
 
 For the integration test, start a **disposable** Compose stack using the [local setup](../README.md). Run `docker compose exec -T api flask --app tracker:create_app db check`, then `python scripts/smoke_test.py`. The script creates two synthetic accounts and one finding, then adds a status change, note, and audit records. It is intended for a database that can be discarded after testing.
 
-## Open findings and exceptions
+## Dependency remediation and exceptions
 
-### Development dependency: minimatch
+### Patched development dependency: minimatch
 
-On 2026-10-31, npm reported 12 moderate dependency findings associated with [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). They originate from `minimatch` 10.2.6 in the ESLint/TypeScript lint dependency graph. The advisory's fix is in 11.0.1; the current consumers require the earlier major version.
+On 2026-10-31, npm reported 12 moderate dependency findings associated with one root advisory, [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). They originated from `minimatch` 10.2.6 in the ESLint/TypeScript lint dependency graph. The advisory describes potential denial of service from crafted glob patterns and is patched in 11.0.1. The current upstream consumers still request version 10.
 
-The potential impact is denial of service when processing crafted glob patterns during development or CI. This package is not part of the built React application. CI limits execution time and uses disposable runners with read-only repository access. The finding remains visible in job output and is below the documented npm gate. The maintainer should review upstream compatible fixes by **2026-11-07**. Do not force a major transitive override without checking API compatibility and rerunning lint, tests, and builds.
+The frontend now pins `minimatch` 11.0.3 through an override limited to requests matching `^10.2.2`. The reviewed consumers in the committed lock are ESLint 10.13.0, `@eslint/config-array` 0.23.5, and `@typescript-eslint/typescript-estree` 8.72.1. The lock changes only minimatch and adds its `@isaacs/nonrecursive-glob-match` dependency. These are development dependencies and are not included in the built React assets.
+
+Compatibility review covered the [version 11 changes](https://github.com/isaacs/minimatch/compare/v10.2.6...v11.0.1) and each installed consumer's call sites. They use `Minimatch.match()` or the `minimatch()` function; they do not use removed APIs such as `makeRe()`, `matchOne()`, or `AST`. Version 11 supports the project's Node 24 runtime. The lint regression check verifies that all 13 current TypeScript source/config files are discovered, build and coverage output stay ignored, and a TypeScript lint violation is reported. CI runs this check and `npm ls` on Linux; both also pass locally on Windows.
+
+A clean locked install, lint, typecheck, all 10 frontend tests, and the production asset build passed. The complete npm audit returned **zero vulnerabilities** on 2026-10-31. CI now rejects moderate advisories as well as high and critical ones.
+
+This major-version override is temporary; the compatibility review covers this repository's lint configuration. Review it after lint dependency or pattern changes, and check upstream adoption by **2026-11-07**. Remove it when upstream dependency ranges allow a patched release, regenerate the lock, and rerun the dependency tree check, lint regression check, tests, build, and audit. Review any new minimatch consumers before retaining the override.
 
 ### Bandit B104: development-container bind
 

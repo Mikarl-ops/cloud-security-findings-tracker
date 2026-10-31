@@ -43,11 +43,11 @@ Do not add feature code for a later milestone without updating the scope and dec
 Before a pull request, run the checks relevant to changed files:
 
 - Backend (from backend/): python -m pytest and python -m ruff check --config pyproject.toml src tests start_dev.py ../scripts.
-- Frontend: npm test, npm run typecheck, npm run lint, and npm run build.
+- Frontend: npm ls, npm test, npm run typecheck, npm run lint, npm run lint:config, npm run build, and npm audit --audit-level=moderate.
 - Data and docs: run python scripts/validate_contract.py and inspect Markdown links.
 - Infrastructure: later milestone only; terraform fmt -check, terraform validate, and IaC scanning must not require AWS credentials.
 
-The quality and security workflows run these checks automatically on pull requests. See [CI and security](ci-security.md) for scanner commands, check thresholds, the disposable Compose integration test, known findings, and the active GitHub merge rules.
+The quality and security workflows run these checks automatically on pull requests. See [CI and security](ci-security.md) for scanner commands, check thresholds, the disposable Compose integration test, dependency override maintenance, exceptions, and the active GitHub merge rules.
 
 ## Documentation and review
 
