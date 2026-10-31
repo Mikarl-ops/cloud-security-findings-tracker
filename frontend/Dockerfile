@@ -1,5 +1,8 @@
 FROM node:24-alpine
 
+RUN apk upgrade --no-cache \
+    && npm install --global npm@12.2.1
+
 WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json ./

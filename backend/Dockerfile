@@ -1,4 +1,6 @@
-FROM python:3.12-slim
+FROM python:3.12-alpine3.24
+
+RUN apk upgrade --no-cache
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
