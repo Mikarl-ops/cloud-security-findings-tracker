@@ -24,10 +24,10 @@ psycopg==3.3.6
 psycopg-binary==3.3.6
 pycparser==3.12
 Pygments==2.21.0
-python-dotenv==1.1.1
+python-dotenv==1.2.2
 pytest==9.2.0
 ruff==0.17.3
-setuptools==81.0.0
+setuptools==84.1.0
 SQLAlchemy==2.1.6
 typing_extensions==4.16.0
 tzdata==2026.5

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=75,<82"]
+requires = ["setuptools>=84.1,<85"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -16,7 +16,7 @@ dependencies = [
   "Flask-SQLAlchemy>=3.1,<4",
   "Flask-WTF>=1.2,<2",
   "argon2-cffi>=23.1,<26",
-  "python-dotenv>=1.1,<2",
+  "python-dotenv>=1.2.2,<2",
   "psycopg[binary]>=3.2,<4",
 ]
 
@@ -24,7 +24,7 @@ dependencies = [
 dev = [
   "pytest>=8,<10",
   "ruff>=0.11,<1",
-  "setuptools>=75,<82",
+  "setuptools>=84.1,<85",
 ]
 
 [tool.setuptools.packages.find]
