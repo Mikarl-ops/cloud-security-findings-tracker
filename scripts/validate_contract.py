@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -97,13 +98,15 @@ def main() -> None:
             if local_target and not (markdown.parent / local_target).resolve().exists():
                 fail(f"broken local link in {markdown.relative_to(ROOT)}: {target}")
 
-    if (ROOT / ".env").exists():
-        fail("a local .env file must not be present in the project tree")
-    terraform_files = list((ROOT / "infra/terraform").glob("*.tf"))
-    if terraform_files:
-        fail("Terraform implementation is out of scope for Milestone 1")
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=ROOT, check=True, capture_output=True, text=True
+    ).stdout.split("\0")
+    for path in tracked:
+        name = Path(path).name
+        if name == ".env" or (name.startswith(".env.") and name != ".env.example"):
+            fail(f"local environment configuration must not be tracked: {path}")
 
-    print("Validated OpenAPI routes, role and enum definitions, local documentation links, and Milestone 1 boundaries.")
+    print("Validated OpenAPI routes, enums, documentation links, and tracked-file hygiene.")
 
 
 if __name__ == "__main__":
