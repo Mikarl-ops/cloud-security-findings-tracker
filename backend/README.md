@@ -23,5 +23,5 @@ The Compose API container runs migrations and `seed-demo` at startup. Create a l
 
 ## Validation
 
-Run `python -m pytest` and `ruff check .` from this directory. Tests use an isolated SQLite database and synthetic records; they do not require Docker, PostgreSQL, AWS, or public service calls.
+Run `python -m pytest` and `python -m ruff check --config pyproject.toml src tests start_dev.py ../scripts` from this directory. Unit/API tests use an isolated SQLite database and synthetic records; they do not require Docker, PostgreSQL, AWS, or public service calls. The separate [Compose integration check](../docs/ci-security.md) exercises the real PostgreSQL migrations and HTTP workflows on a disposable stack.
 

@@ -19,6 +19,7 @@ Do not add feature code for a later milestone without updating the scope and dec
 - Submit changes through a pull request to main; do not commit directly to main.
 - Keep each pull request focused. Describe behavior, tests run, security impact, and follow-up work.
 - Do not merge a pull request without the owner's approval.
+- Use descriptive commit messages such as `ci: automate API checks` or `fix(deps): patch a vulnerable dependency`. Commit and push each distinct part separately so its history remains reviewable.
 
 ## Code conventions
 
@@ -40,12 +41,12 @@ Do not add feature code for a later milestone without updating the scope and dec
 
 Before a pull request, run the checks relevant to changed files:
 
-- Backend: python -m pytest and ruff check .
+- Backend (from backend/): python -m pytest and python -m ruff check --config pyproject.toml src tests start_dev.py ../scripts.
 - Frontend: npm test, npm run typecheck, npm run lint, and npm run build.
 - Data and docs: run python scripts/validate_contract.py and inspect Markdown links.
 - Infrastructure: later milestone only; terraform fmt -check, terraform validate, and IaC scanning must not require AWS credentials.
 
-The initial CI workflow is deferred to Milestone 4. Local validation commands are documented now so the workflow can mirror them later.
+The quality and security workflows run these checks automatically on pull requests. See [CI and security](ci-security.md) for scanner commands, check thresholds, the disposable Compose integration test, and known findings. The owner must configure branch protection separately to enforce the checks on merges.
 
 ## Documentation and review
 

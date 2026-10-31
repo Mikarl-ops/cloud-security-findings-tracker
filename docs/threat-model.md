@@ -1,10 +1,10 @@
 # Threat model
 
-**Status:** Milestone 2 local controls are implemented and tested. CI, UI protections, container controls, deployment controls, and AWS remain later work.
+**Status:** Local API/session controls, plain-text UI rendering, automated quality/security checks, and non-root container execution are implemented. Deployment controls and AWS remain later work. Thresholds and remaining findings are recorded in the [CI policy](ci-security.md).
 
 ## Scope
 
-This model covers the planned local React + TypeScript frontend, Flask REST API, PostgreSQL database, server-managed sessions, and synthetic data. The optional AWS architecture is not authorized or provisioned by this milestone. The model must be revisited before any public deployment or real telemetry is introduced.
+This model covers the local React + TypeScript frontend, Flask REST API, PostgreSQL database, server-managed sessions, synthetic data, and PR validation pipeline. The optional AWS architecture is not provisioned. The model must be revisited before any public deployment or real telemetry is introduced.
 
 ## Assets
 
@@ -23,7 +23,7 @@ This model covers the planned local React + TypeScript frontend, Flask REST API,
 | Read-only viewer | Can read permitted findings and history but must not change state |
 | Analyst | Can change finding status and add notes through authorized routes |
 | Developer | Can change source, dependencies, configuration, and sample data |
-| Dependency or build service | May be compromised; pull-request checks are planned for a later milestone |
+| Dependency or build service | May be compromised; pinned actions, verified scanner archives, audits, and image scans reduce but do not remove this risk |
 | Local database operator | Can inspect local data; local data must remain synthetic |
 
 The browser, request parameters, finding text, notes, and session cookie are untrusted. A successful login does not imply permission to perform every action.
@@ -47,7 +47,7 @@ The browser, request parameters, finding text, notes, and session cookie are unt
 | SQL injection or malformed input | Data exposure, modification, or service failure | Use SQLAlchemy parameterized queries; validate type, length, enum, time ranges, pagination, and JSON size; reject unsupported content types and oversized bodies | API validation and database integration tests |
 | Resource exhaustion | Slow queries, large responses, or login flood | Bounded page size (maximum 100), bounded request body (16 KiB), bounded note length (4,000 characters), database timeouts, login throttling, and rate limits at the edge if public | Limit-boundary tests and load limits reviewed before deployment |
 | Audit history tampering or misleading records | Loss of investigation accountability | Write finding changes and audit events in one transaction; do not expose update/delete routes for audit events; runtime database role receives read/insert only for audit records; record actor, time, event type, finding ID, and safe changed fields | Tests verify rollback on audit failure and reject audit mutation |
-| Secret or sensitive telemetry leakage | Account compromise or privacy harm | .env is ignored; no secret defaults; secret scanning planned for CI; only synthetic records are accepted; do not log credentials, session IDs, note bodies, or raw request bodies | Repository scan and logging review in later milestone |
+| Secret or sensitive telemetry leakage | Account compromise or privacy harm | .env is ignored; no secret defaults; full-history Gitleaks scan with redacted output; only synthetic records are accepted; do not log credentials, session IDs, note bodies, or raw request bodies | CI secret scan and tracked-file validation; detailed logging review remains release work |
 | Misleading synthetic alert presented as real | Incorrect security conclusions | Label the environment and sample records synthetic; document data provenance and limitations; no claims of production detection | README and sample-data review |
 
 ## Data-handling rules
@@ -64,7 +64,7 @@ The browser, request parameters, finding text, notes, and session cookie are unt
 - The application has no independent security boundary between two customer organizations; multi-tenancy is explicitly excluded.
 - A local single-node database is not a production backup or availability strategy.
 - Login throttling uses the server-observed remote address; any reverse-proxy deployment must define and test trusted-proxy handling before relying on the address in rate-limit keys.
-- Dependency and CI controls, container hardening, optional AWS IAM/network design, and operational alerting are later milestones.
+- Automated scans cover known advisories and specific code patterns, not all vulnerabilities. Open moderate development dependency findings and the development-bind exception require the dated follow-ups in the [CI policy](ci-security.md). Optional AWS IAM/network design, production container review, and operational alerting remain later work.
 - No application in this milestone is suitable for public exposure. Public deployment requires the complete authentication, authorization, CSRF, TLS, logging, rate-limit, secret, and operational controls to be implemented and reviewed.
 
 ## References
