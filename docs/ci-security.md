@@ -81,7 +81,9 @@ The potential impact is denial of service when processing crafted glob patterns 
 
 ## Review and merge settings
 
-The workflows make failures visible, but do not themselves enforce GitHub branch protection. At implementation time, `main` is not protected. The repository owner should configure a ruleset requiring a PR and the eleven checks above before merging, with force pushes and branch deletion blocked. A solo-maintainer ruleset need not require a second person's review, but this project still requires the owner's merge approval.
+The active [Protect main ruleset](https://github.com/Mikarl-ops/cloud-security-findings-tracker/rules/26267100) was verified on 2026-10-31. It targets only `refs/heads/main`, requires a pull request, requires the eleven checks above from GitHub Actions, and requires the branch to be up to date before merging. It blocks force pushes and deletion, requires review conversations to be resolved, and has no bypass actors. The required approving-review count is zero so a solo maintainer can merge; the agent still needs the owner's explicit merge approval.
+
+The importable configuration is recorded in [main.json](../.github/rulesets/main.json). Editing that file alone does not update GitHub settings: an administrator must review and apply the change, then verify the live rule. Keep the check names and GitHub Actions integration ID consistent with the workflows.
 
 Dependabot proposes weekly action, npm, backend Python, and scanner dependency updates. Python update PRs must keep `pyproject.toml` and the complete `backend/requirements.lock` consistent; Dependabot is not a substitute for regenerating and reviewing that custom lock. Rerun audits and tests for dependency updates. Scanner requirements are similarly resolved in a clean environment and frozen in full.
 

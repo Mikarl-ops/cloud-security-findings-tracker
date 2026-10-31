@@ -19,6 +19,7 @@ Do not add feature code for a later milestone without updating the scope and dec
 - Submit changes through a pull request to main; do not commit directly to main.
 - Keep each pull request focused. Describe behavior, tests run, security impact, and follow-up work.
 - Do not merge a pull request without the owner's approval.
+- The active `Protect main` ruleset requires all eleven checks, an up-to-date branch, and resolved review conversations. It blocks direct pushes, force pushes, and deletion of `main`, with no bypass actors. See [CI and merge policy](ci-security.md).
 - Use descriptive commit messages such as `ci: automate API checks` or `fix(deps): patch a vulnerable dependency`. Commit and push each distinct part separately so its history remains reviewable.
 
 ## Code conventions
@@ -46,7 +47,7 @@ Before a pull request, run the checks relevant to changed files:
 - Data and docs: run python scripts/validate_contract.py and inspect Markdown links.
 - Infrastructure: later milestone only; terraform fmt -check, terraform validate, and IaC scanning must not require AWS credentials.
 
-The quality and security workflows run these checks automatically on pull requests. See [CI and security](ci-security.md) for scanner commands, check thresholds, the disposable Compose integration test, and known findings. The owner must configure branch protection separately to enforce the checks on merges.
+The quality and security workflows run these checks automatically on pull requests. See [CI and security](ci-security.md) for scanner commands, check thresholds, the disposable Compose integration test, known findings, and the active GitHub merge rules.
 
 ## Documentation and review
 

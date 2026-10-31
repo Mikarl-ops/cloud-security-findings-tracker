@@ -31,7 +31,7 @@ The planned ECS path is not part of the local runtime, and no AWS infrastructure
 
 1. **Browser to application:** the browser is untrusted. The API validates every field, authenticates every protected request, checks the user's role on every action, and applies CSRF protection to cookie-authenticated state changes.
 2. **Application to PostgreSQL:** the API uses a least-privilege database identity. Queries are parameterized through SQLAlchemy. The database stores passwords only as Argon2id hashes and stores server-side session state separately from browser cookies.
-3. **Developer and dependency supply chain:** pull requests run tests, code analysis, dependency auditing, full-history secret scanning, and container scans. Actions and scanner archives are pinned; jobs have read-only repository permissions and bounded execution. Infrastructure checks follow when Terraform is introduced. The owner must configure GitHub merge protection; see [CI policy](ci-security.md).
+3. **Developer and dependency supply chain:** pull requests run tests, code analysis, dependency auditing, full-history secret scanning, and container scans. Actions and scanner archives are pinned; jobs have read-only repository permissions and bounded execution. The active `Protect main` ruleset enforces these checks before merging. Infrastructure checks follow when Terraform is introduced; see [CI policy](ci-security.md).
 4. **Optional AWS boundary:** only a later, separately reviewed milestone may add cloud resources. Local tests and CI do not need AWS credentials.
 
 ## Request flow

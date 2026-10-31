@@ -1,0 +1,92 @@
+{
+  "name": "Protect main",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": [
+        "refs/heads/main"
+      ],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [],
+  "rules": [
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "allowed_merge_methods": [
+          "merge",
+          "squash",
+          "rebase"
+        ],
+        "dismiss_stale_reviews_on_push": false,
+        "required_reviewers": [],
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_approving_review_count": 0,
+        "require_extra_approval_for_unattributed_changes": true,
+        "required_review_thread_resolution": true
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "do_not_enforce_on_create": false,
+        "strict_required_status_checks_policy": true,
+        "required_status_checks": [
+          {
+            "context": "Backend tests and lint",
+            "integration_id": 15368
+          },
+          {
+            "context": "Frontend tests and build",
+            "integration_id": 15368
+          },
+          {
+            "context": "API contract and workflow validation",
+            "integration_id": 15368
+          },
+          {
+            "context": "PostgreSQL and Compose smoke",
+            "integration_id": 15368
+          },
+          {
+            "context": "Python static analysis",
+            "integration_id": 15368
+          },
+          {
+            "context": "Python dependency audit",
+            "integration_id": 15368
+          },
+          {
+            "context": "Frontend dependency audit",
+            "integration_id": 15368
+          },
+          {
+            "context": "Repository secret scan",
+            "integration_id": 15368
+          },
+          {
+            "context": "Container scan (api)",
+            "integration_id": 15368
+          },
+          {
+            "context": "Container scan (frontend)",
+            "integration_id": 15368
+          },
+          {
+            "context": "Container scan (db)",
+            "integration_id": 15368
+          }
+        ]
+      }
+    }
+  ]
+}
