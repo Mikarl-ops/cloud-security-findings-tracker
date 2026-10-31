@@ -19,8 +19,8 @@ flowchart LR
     SEED[Synthetic seed data] --> DB
 
     DEV[Developer] --> REPO[GitHub repository]
-    REPO --> CI[GitHub Actions, later milestone]
-    CI -. later .-> IMAGE[Container image]
+    REPO --> CI[GitHub Actions: tests and security scans]
+    CI --> IMAGE[Local test images]
     IMAGE -. optional .-> ECS[ECS Fargate]
     ECS -. optional .-> RDS[(Managed PostgreSQL)]
 ```
@@ -31,7 +31,7 @@ The planned ECS path is not part of the local runtime, and no AWS infrastructure
 
 1. **Browser to application:** the browser is untrusted. The API validates every field, authenticates every protected request, checks the user's role on every action, and applies CSRF protection to cookie-authenticated state changes.
 2. **Application to PostgreSQL:** the API uses a least-privilege database identity. Queries are parameterized through SQLAlchemy. The database stores passwords only as Argon2id hashes and stores server-side session state separately from browser cookies.
-3. **Developer and dependency supply chain:** repository changes are reviewed through pull requests. The later CI milestone will add tests, code analysis, dependency auditing, secret scanning, and infrastructure checks.
+3. **Developer and dependency supply chain:** pull requests run tests, code analysis, dependency auditing, full-history secret scanning, and container scans. Actions and scanner archives are pinned; jobs have read-only repository permissions and bounded execution. Infrastructure checks follow when Terraform is introduced. The owner must configure GitHub merge protection; see [CI policy](ci-security.md).
 4. **Optional AWS boundary:** only a later, separately reviewed milestone may add cloud resources. Local tests and CI do not need AWS credentials.
 
 ## Request flow
@@ -53,7 +53,7 @@ The planned ECS path is not part of the local runtime, and no AWS infrastructure
 ## Availability checks
 
 - GET /api/v1/health/live reports that the process is running. It performs no dependency checks and returns no environment or secret details.
-- GET /api/v1/health/ready is planned for the database milestone. It returns success only when the database is reachable and the schema is usable; otherwise it returns a generic service-unavailable response.
+- GET /api/v1/health/ready returns success only when the database is reachable and the required migrated tables exist; otherwise it returns a generic service-unavailable response.
 
 ## Runtime baseline
 
