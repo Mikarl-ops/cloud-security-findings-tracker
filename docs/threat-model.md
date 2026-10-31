@@ -64,7 +64,7 @@ The browser, request parameters, finding text, notes, and session cookie are unt
 - The application has no independent security boundary between two customer organizations; multi-tenancy is explicitly excluded.
 - A local single-node database is not a production backup or availability strategy.
 - Login throttling uses the server-observed remote address; any reverse-proxy deployment must define and test trusted-proxy handling before relying on the address in rate-limit keys.
-- Automated scans cover known advisories and specific code patterns, not all vulnerabilities. Open moderate development dependency findings and the development-bind exception require the dated follow-ups in the [CI policy](ci-security.md). Optional AWS IAM/network design, production container review, and operational alerting remain later work.
+- Automated scans cover known advisories and specific code patterns, not all vulnerabilities. The temporary minimatch compatibility override and the development-bind exception require the dated follow-ups in the [CI policy](ci-security.md). Optional AWS IAM/network design, production container review, and operational alerting remain later work.
 - No application in this milestone is suitable for public exposure. Public deployment requires the complete authentication, authorization, CSRF, TLS, logging, rate-limit, secret, and operational controls to be implemented and reviewed.
 
 ## References

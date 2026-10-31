@@ -16,7 +16,7 @@ The project uses synthetic sample data only. It does not ingest real telemetry, 
 - [Architecture decision record](docs/decisions/0001-architecture.md)
 - [Backend and session storage decisions](docs/decisions/0002-backend-data-and-session-storage.md)
 - [Development conventions](docs/development.md)
-- [CI checks, security gates, and known findings](docs/ci-security.md)
+- [CI checks, security gates, and maintenance](docs/ci-security.md)
 
 ## Planned repository structure
 
@@ -55,7 +55,7 @@ The Vite development server proxies `/api` requests to the API, so the browser u
 
 ## Automated checks
 
-The [quality workflow](.github/workflows/ci.yml) tests both applications and starts a disposable PostgreSQL/Compose stack. The [security workflow](.github/workflows/security.yml) runs Bandit, pip-audit, npm audit, Gitleaks, and Trivy. Actions use pinned commits and read-only repository access. See the [check policy](docs/ci-security.md) for local commands, failure thresholds, known moderate development dependency findings, and the remaining branch-protection setting.
+The [quality workflow](.github/workflows/ci.yml) tests both applications and starts a disposable PostgreSQL/Compose stack. The [security workflow](.github/workflows/security.yml) runs Bandit, pip-audit, npm audit, Gitleaks, and Trivy. Actions use pinned commits and read-only repository access. The active `Protect main` ruleset requires a pull request and all eleven checks before merging. See the [check policy](docs/ci-security.md) for local commands, failure thresholds, the reviewed minimatch security override, exceptions, and enforced merge settings.
 
 ## Safety and data handling
 
