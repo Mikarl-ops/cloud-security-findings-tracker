@@ -62,7 +62,9 @@ jobs:
         run: npm ci
       - name: Lint, typecheck, test, and build
         run: |
+          npm ls
           npm run lint
+          npm run lint:config
           npm run typecheck
           npm test
           npm run build

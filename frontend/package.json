@@ -11,11 +11,15 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
+    "lint:config": "node scripts/check-lint-config.mjs",
     "test": "vitest run"
   },
   "dependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
+  },
+  "overrides": {
+    "minimatch@^10.2.2": "11.0.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

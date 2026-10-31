@@ -71,7 +71,7 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Audit runtime and development dependencies
-        run: npm audit --audit-level=high --registry=https://registry.npmjs.org
+        run: npm audit --audit-level=moderate --registry=https://registry.npmjs.org
 
   secrets:
     name: Repository secret scan
