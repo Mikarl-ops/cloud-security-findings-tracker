@@ -38,7 +38,7 @@ jobs:
           python -m pip check
       - name: Lint and test the API
         run: |
-          python -m ruff check src tests start_dev.py
+          python -m ruff check src tests start_dev.py ../scripts
           python -m pytest -q
 
   frontend:
@@ -88,3 +88,48 @@ jobs:
           echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check -
           tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -color
+
+  compose:
+    name: PostgreSQL and Compose smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      COMPOSE_PROJECT_NAME: tracker-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      POSTGRES_DB: tracker
+      POSTGRES_USER: tracker
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version-file: .python-version
+      - name: Generate ephemeral local configuration
+        run: |
+          python - <<'PY'
+          import os
+          import secrets
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              for name in ("POSTGRES_PASSWORD", "SECRET_KEY"):
+                  value = secrets.token_hex(32)
+                  print("::add-mask::" + value)
+                  output.write(name + "=" + value + "\n")
+          PY
+      - name: Validate, build, and start the stack
+        run: |
+          docker compose config --quiet
+          docker compose up --build --wait --wait-timeout 180
+      - name: Check migrations and synthetic seed idempotence
+        run: |
+          docker compose exec -T api flask --app tracker:create_app db check
+          docker compose exec -T api flask --app tracker:create_app seed-demo | grep -F '0 added, 6 already present'
+      - name: Exercise authenticated workflows through the frontend proxy
+        run: python scripts/smoke_test.py
+      - name: Show service diagnostics on failure
+        if: failure()
+        run: |
+          docker compose ps --all
+          docker compose logs --no-color --tail=100
+      - name: Remove the disposable stack and database
+        if: always()
+        run: docker compose down --volumes --remove-orphans
