@@ -1,0 +1,17 @@
+# Dependency review: 2026-11-01
+
+The five open Dependabot PRs were reviewed against `main` at `a1c641f`. Each PR changes only the frontend manifest and lock; all eleven checks passed at the head recorded below. These results apply to each upgrade independently. They do not establish that the combined upgrades work together. No dependency PR was merged during this review.
+
+| PR and reviewed head | Review | Recommendation |
+|---|---|---|
+| [#5](https://github.com/Mikarl-ops/cloud-security-findings-tracker/pull/5), `3c7ebba` | jest-dom 6.9.1 -> 7.0.1 requires Node 22+ and `@testing-library/dom` >=10 <11. The locked DOM peer is present; CI uses Node 24.22.1. Existing imports use the Vitest entrypoint. Only this package version changes. | Ready for owner review. |
+| [#6](https://github.com/Mikarl-ops/cloud-security-findings-tracker/pull/6), `2894f66` | globals 16.5.0 -> 17.13.0 changes lint environment definitions. This project uses the browser and Node sets; lint, discovery validation, and typecheck pass. Only this package version changes. | Ready for owner review. |
+| [#7](https://github.com/Mikarl-ops/cloud-security-findings-tracker/pull/7), `cc58306` | jsdom 27.4.0 -> 30.1.3 updates its DOM/CSS, URL, and HTTP dependency graph. It requires Node `^22.22.2 || ^24.15.0 || >=26.0.0`. CI's 24.22.1 satisfies this; the reviewed Windows installation, 24.11.0, does not. | Hold until the local runtime matches `.nvmrc`, then run the frontend suite locally. CI alone does not establish Windows compatibility. |
+| [#8](https://github.com/Mikarl-ops/cloud-security-findings-tracker/pull/8), `b885a93` | Vite 7.3.7 -> 8.3.5 replaces Rollup/esbuild with Rolldown/Oxc and changes default browser targets. The existing React plugin explicitly supports Vite 8. The config uses no custom Rollup/esbuild hooks. Build, component tests, and Compose proxy/login smoke pass in CI. | Ready for owner review with the bundler change called out. A browser walkthrough remains release work. |
+| [#9](https://github.com/Mikarl-ops/cloud-security-findings-tracker/pull/9), `7ef8fba` | react-refresh lint plugin 0.4.26 -> 0.5.7 switches to ESM/flat config and requires ESLint 9+. This project already uses ESM, flat config, and ESLint 10. It uses no renamed `customHOCs` option; its `allowConstantExport` setting still passes lint. Only this package version changes. | Ready for owner review. |
+
+Every proposed lock retains patched minimatch 11.0.3. npm's peer metadata normalization does not introduce unrelated package version changes in #5, #6, or #9. The larger dependency changes in #7 and #8 belong to their upgraded tooling.
+
+Before merging a dependency PR, refresh it against the latest main and require all checks again. Merge decisions remain with the owner; approval of today's infrastructure work is not approval to merge these PRs. After one merge, recheck the next PR rather than treating the independent results above as combined validation.
+
+Sources reviewed: the PR diffs and exact locked manifests, [jest-dom release notes](https://github.com/testing-library/jest-dom/releases/tag/v7.0.1), [globals releases](https://github.com/sindresorhus/globals/releases), [jsdom releases](https://github.com/jsdom/jsdom/releases/tag/30.1.3), [Vite migration guide](https://vite.dev/guide/migration), and [react-refresh plugin changelog](https://github.com/ArnaudBarre/eslint-plugin-react-refresh/blob/main/CHANGELOG.md).

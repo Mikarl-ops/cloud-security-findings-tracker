@@ -17,6 +17,7 @@ The project uses synthetic sample data only. It does not ingest real telemetry, 
 - [Backend and session storage decisions](docs/decisions/0002-backend-data-and-session-storage.md)
 - [Development conventions](docs/development.md)
 - [CI checks, security gates, and maintenance](docs/ci-security.md)
+- [Dependency review and pending upgrade decisions](docs/dependency-review.md)
 
 ## Planned repository structure
 

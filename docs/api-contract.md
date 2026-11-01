@@ -4,7 +4,7 @@
 **Media type:** application/json; charset=utf-8  
 **Errors:** application/problem+json following [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html).
 
-This is the agreed v1 contract. Milestone 2 implements the health, authentication, findings, notes, and history routes. The React client and CI pipeline remain later milestones.
+This v1 contract is implemented by the Flask API and used by the React client. Automated API, frontend, contract, and Compose integration checks run on pull requests. Deployment-specific transport and operational controls remain subject to the deployment review.
 
 ## Authentication and roles
 
@@ -22,7 +22,7 @@ All protected routes check authentication and authorization server-side. The rol
 | Method and path | Access | Purpose |
 |---|---|---|
 | GET /health/live | Public | Liveness only; no dependency or secret details |
-| GET /health/ready | Public | Planned database readiness check; returns 503 when the service cannot serve data |
+| GET /health/ready | Public | Database readiness check; returns 503 when the service cannot serve data |
 | GET /auth/csrf | Public | Establishes an anonymous session and returns `{ "csrf_token": "<token>" }`; Cache-Control: no-store |
 | POST /auth/login | Public + CSRF | Authenticates a local user, rotates the session ID, and returns the user summary |
 | GET /auth/session | Authenticated | Returns the current user's ID, username, and role |
