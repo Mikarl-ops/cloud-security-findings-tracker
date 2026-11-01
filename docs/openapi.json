@@ -3,7 +3,7 @@
   "info": {
     "title": "Cloud Security Findings Tracker API",
     "version": "1.0.0",
-    "description": "Design contract for the synthetic findings tracker. Only the liveness route is implemented in Milestone 1."
+    "description": "Implemented v1 API for synthetic findings, sessions, role-protected status changes, notes, and audit history. Local application and CI workflows are available; public deployment requires a separate review."
   },
   "servers": [
     {

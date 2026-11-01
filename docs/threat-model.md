@@ -1,6 +1,6 @@
 # Threat model
 
-**Status:** Local API/session controls, plain-text UI rendering, automated quality/security checks, and non-root container execution are implemented. Deployment controls and AWS remain later work. Thresholds and remaining findings are recorded in the [CI policy](ci-security.md).
+**Status:** Local API/session controls, plain-text UI rendering, automated quality/security checks, and non-root container execution are implemented. The optional AWS configuration is schema-validated, scanned, and tested with mocked plans; live deployment controls are untested. Thresholds and remaining findings are recorded in the [CI policy](ci-security.md).
 
 ## Scope
 
@@ -64,8 +64,10 @@ The browser, request parameters, finding text, notes, and session cookie are unt
 - The application has no independent security boundary between two customer organizations; multi-tenancy is explicitly excluded.
 - A local single-node database is not a production backup or availability strategy.
 - Login throttling uses the server-observed remote address; any reverse-proxy deployment must define and test trusted-proxy handling before relying on the address in rate-limit keys.
-- Automated scans cover known advisories and specific code patterns, not all vulnerabilities. The temporary minimatch compatibility override and the development-bind exception require the dated follow-ups in the [CI policy](ci-security.md). Optional AWS IAM/network design, production container review, and operational alerting remain later work.
-- No application in this milestone is suitable for public exposure. Public deployment requires the complete authentication, authorization, CSRF, TLS, logging, rate-limit, secret, and operational controls to be implemented and reviewed.
+- Automated scans cover known advisories and specific code patterns, not all vulnerabilities. The minimatch compatibility override, development-bind exception, and resource-specific IaC exceptions require the dated follow-ups in the [CI policy](ci-security.md). Terraform describes AWS IAM/network boundaries; their live behavior, production images, and operational alerts still require review and evidence.
+- The development images remain unsuitable for public exposure. The optional path requires production image, proxy/host, TLS, browser-header, database-privilege, secret-rotation, cost, and operational reviews described in the [deployment guide](deployment.md). The ALB terminates TLS and uses private HTTP to the frontend; the frontend and API share one task trust boundary.
+- Terraform's deployment flag is an accidental-use guard, not an authorization mechanism. Defaults reject provisioning and task activation; all CI tests use a mocked AWS provider. Operators still require explicit owner approval and least-privilege access before live work.
+- Terraform state and plans are sensitive metadata. Secret values remain outside this configuration, local state/variables are ignored and rejected by tracked-file validation, and secure remote state remains a deployment prerequisite. Retained encrypted snapshots require retaining the KMS key and recovery access; prevent_destroy deliberately blocks an unreviewed full teardown.
 
 ## References
 
