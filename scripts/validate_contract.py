@@ -87,7 +87,7 @@ def main() -> None:
                 fail(f"malformed nested response under {method.upper()} {path}")
 
     local_link = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
-    ignored_dirs = {".git", ".venv", "venv", "node_modules", "dist"}
+    ignored_dirs = {".git", ".venv", "venv", "node_modules", "dist", ".terraform"}
     for markdown in ROOT.rglob("*.md"):
         if ignored_dirs.intersection(markdown.parts):
             continue
@@ -105,6 +105,13 @@ def main() -> None:
         name = Path(path).name
         if name == ".env" or (name.startswith(".env.") and name != ".env.example"):
             fail(f"local environment configuration must not be tracked: {path}")
+        if (
+            ".terraform" in Path(path).parts
+            or name.endswith((".tfvars", ".tfvars.json", ".tfplan", ".tfstate"))
+            or ".tfstate." in name
+            or name in {"terraform.rc", ".terraformrc", "crash.log"}
+        ):
+            fail(f"Terraform runtime data or local configuration must not be tracked: {path}")
 
     print("Validated OpenAPI routes, enums, documentation links, and tracked-file hygiene.")
 
