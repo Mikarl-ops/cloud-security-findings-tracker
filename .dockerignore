@@ -13,3 +13,12 @@
 **/*.py[cod]
 **/*.egg-info
 *.log
+# Infrastructure and local Terraform runtime data are not application image inputs.
+infra/
+**/.terraform
+**/*.tfstate*
+**/*.tfplan
+**/*.tfvars
+**/*.tfvars.json
+**/terraform.rc
+**/.terraformrc

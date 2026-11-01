@@ -53,5 +53,5 @@ The quality and security workflows run these checks automatically on pull reques
 
 Keep architecture, API, data model, and threat model in sync when a contract changes. Every accepted security exception needs its reason, impact, and review date. Clearly distinguish implemented behavior from planned behavior.
 
-Never track Terraform state, saved plans, provider caches, local variable files, or CLI credentials. Secret values stay outside Terraform configuration and state. The committed provider lock and nonsecret .example test fixture are intentional. The [deployment guide](deployment.md) records prerequisites; validation of this foundation does not approve AWS work or demonstrate that development images can be deployed.
+Never track Terraform state, saved plans, provider caches, local variable files, or CLI credentials. Secret values stay outside Terraform configuration and state. Docker build contexts also exclude infrastructure and local Terraform runtime data. The committed provider lock and nonsecret .example test fixture are intentional. The [deployment guide](deployment.md) records prerequisites; validation of this foundation does not approve AWS work or demonstrate that development images can be deployed.
 
