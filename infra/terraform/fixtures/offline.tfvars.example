@@ -1,0 +1,9 @@
+# Synthetic inputs for scanning and mocked tests only. These are not deployable identities or artifacts.
+aws_account_id            = "000000000000"
+aws_region                = "ap-southeast-1"
+availability_zones        = ["ap-southeast-1a", "ap-southeast-1b"]
+certificate_arn           = "arn:aws:acm:ap-southeast-1:000000000000:certificate/00000000-0000-0000-0000-000000000000"
+api_image                 = "000000000000.dkr.ecr.ap-southeast-1.amazonaws.com/csft-demo/api@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+frontend_image            = "000000000000.dkr.ecr.ap-southeast-1.amazonaws.com/csft-demo/frontend@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+db_engine_version         = "18.6"
+final_snapshot_identifier = "csft-demo-offline-final"
