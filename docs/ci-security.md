@@ -8,7 +8,7 @@ GitHub Actions runs the `Quality` and `Security` workflows for pull requests int
 |---|---|
 | Backend tests and lint | Ruff findings, failing pytest cases, dependency conflicts, or installation errors |
 | Frontend tests and build | Invalid dependency trees, ESLint discovery/rule regressions, TypeScript, Vitest, installation, or build errors |
-| API contract and workflow validation | Invalid contract invariants, broken local documentation links, tracked environment files, or actionlint errors |
+| API contract and workflow validation | Invalid API/docs or tracked-file hygiene, actionlint errors, Terraform formatting/schema/mock-test failures, or unexcepted high/critical infrastructure findings |
 | PostgreSQL and Compose smoke | Image/startup failures, schema drift, non-idempotent seeding, or a failed HTTP workflow assertion |
 | Python static analysis | Bandit findings with severity and confidence both medium or higher |
 | Python dependency audit | Any known advisory in the application or scanner lock, or incomplete dependency collection |
@@ -24,7 +24,7 @@ No check uses `continue-on-error`, an advisory ignore list, or an unfixed-vulner
 
 - Workflows run on disposable GitHub-hosted Ubuntu runners with `contents: read`. They use `pull_request`, without privileged `pull_request_target` execution.
 - Actions are pinned to full commit IDs, with release versions beside each pin. Checkout does not persist its credential.
-- actionlint 1.7.12, Gitleaks 8.30.1, and Trivy 0.76.1 archives are checked against committed SHA-256 digests before execution. Python scanner dependencies are fully version-pinned in [requirements-security.txt](../scripts/requirements-security.txt).
+- actionlint 1.7.12, Gitleaks 8.30.1, Trivy 0.76.1, and Terraform 1.17.1 archives are checked against committed SHA-256 digests before execution. The AWS provider is pinned to 6.71.0 with its signed registry checksums locked for Linux and Windows. Python scanner dependencies are fully version-pinned in [requirements-security.txt](../scripts/requirements-security.txt).
 - Jobs have timeouts, and a newer update cancels outdated checks for the same PR. The container matrix completes each service independently so all results are visible.
 - The Compose job generates and masks random local credentials for each run. It creates no `.env` file, uses no repository secrets or AWS identity, and removes its containers, network, and database volume afterward.
 - Application images are built for tests and scanning. They are not published or deployed.
@@ -93,7 +93,15 @@ The importable configuration is recorded in [main.json](../.github/rulesets/main
 
 Dependabot proposes weekly action, npm, backend Python, and scanner dependency updates. Python update PRs must keep `pyproject.toml` and the complete `backend/requirements.lock` consistent; Dependabot is not a substitute for regenerating and reviewing that custom lock. Rerun audits and tests for dependency updates. Scanner requirements are similarly resolved in a clean environment and frozen in full.
 
-Terraform validation and infrastructure scanning belong to the next delivery stage, after Terraform exists. No cloud provisioning is part of these checks.
+## Infrastructure validation
+
+The existing required `API contract and workflow validation` job also runs Terraform fmt, initialization with -backend=false and a read-only provider lock, schema validation, seven mocked plan tests, and Trivy configuration scanning. No additional check name or branch-rule change is required. The job has no AWS credentials, OIDC permission, live provider plan, apply, or publication step.
+
+The tests exercise default deployment rejection, private data/task boundaries, immutable images, restricted ingress and execution permissions, rejection of broad CIDRs and duplicate AZs, and the task-activation allowlist requirement. All runs use the mocked AWS provider. Synthetic fixture inputs support static scanning without a real account, certificate, or image.
+
+Trivy first reports all severities, then fails on high/critical infrastructure findings. Two resource-specific inline exceptions expire on **2026-11-30**: the intended HTTPS ALB edge and AWS's SSE-S3 requirement for ALB log delivery. Reasons, controls, impact, and pre-deployment review requirements are in [ADR 0003](decisions/0003-optional-ecs-foundation.md). There is no global IaC exclusion or vulnerability-advisory ignore list. The low-severity AWS-0089 log-destination bucket finding remains visible and is recorded in the same ADR.
+
+Use the [Terraform reproduction commands](../infra/terraform/README.md) locally. Downloads of uncached tools/providers/policies need internet access, but AWS credentials and AWS service calls are unnecessary. Mocked plans and scanners cannot prove regional service availability, live IAM behavior, production-image behavior, or teardown; see the [deployment guide](deployment.md).
 
 ## References
 

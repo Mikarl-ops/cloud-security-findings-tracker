@@ -8,7 +8,7 @@ The six milestones are:
 2. Flask API, database migrations, findings, notes, sessions, and authorization
 3. React workflows and complete local Compose environment
 4. Pull-request CI, quality checks, and security scanning
-5. Terraform and the optional ECS Fargate path
+5. Terraform and the optional ECS Fargate path, validated locally with mocked AWS plans
 6. Security scenarios, final documentation, and walkthrough
 
 Do not add feature code for a later milestone without updating the scope and decision record. AWS commands and provisioning are not part of local setup.
@@ -45,11 +45,13 @@ Before a pull request, run the checks relevant to changed files:
 - Backend (from backend/): python -m pytest and python -m ruff check --config pyproject.toml src tests start_dev.py ../scripts.
 - Frontend: npm ls, npm test, npm run typecheck, npm run lint, npm run lint:config, npm run build, and npm audit --audit-level=moderate.
 - Data and docs: run python scripts/validate_contract.py and inspect Markdown links.
-- Infrastructure: later milestone only; terraform fmt -check, terraform validate, and IaC scanning must not require AWS credentials.
+- Infrastructure: Terraform formatting, locked initialization without a backend, schema validation, mocked plan tests, and the high/critical Trivy configuration gate. Follow the [infrastructure commands](../infra/terraform/README.md); use synthetic fixtures and no AWS credentials.
 
 The quality and security workflows run these checks automatically on pull requests. See [CI and security](ci-security.md) for scanner commands, check thresholds, the disposable Compose integration test, dependency override maintenance, exceptions, and the active GitHub merge rules.
 
 ## Documentation and review
 
 Keep architecture, API, data model, and threat model in sync when a contract changes. Every accepted security exception needs its reason, impact, and review date. Clearly distinguish implemented behavior from planned behavior.
+
+Never track Terraform state, saved plans, provider caches, local variable files, or CLI credentials. Secret values stay outside Terraform configuration and state. The committed provider lock and nonsecret .example test fixture are intentional. The [deployment guide](deployment.md) records prerequisites; validation of this foundation does not approve AWS work or demonstrate that development images can be deployed.
 

@@ -2,7 +2,7 @@
 
 A small portfolio application for reviewing synthetic cloud security findings. It connects a React and TypeScript dashboard to a Flask API and PostgreSQL, with session authentication, analyst and viewer roles, investigation notes, and an audit history.
 
-The Flask API, PostgreSQL schema and migrations, sessions, analyst/viewer workflows, React dashboard, and local Compose environment are implemented. Pull requests now run automated tests, integration checks, code analysis, dependency audits, secret scanning, and scans of all three container images. Deployment remains future work.
+The Flask API, PostgreSQL schema and migrations, sessions, analyst/viewer workflows, React dashboard, and local Compose environment are implemented. Pull requests run automated tests, integration checks, code analysis, dependency audits, secret scanning, and scans of all three container images. An optional ECS Terraform foundation adds schema validation, mocked security tests, and infrastructure scanning without AWS credentials. Live deployment remains future work.
 
 The project uses synthetic sample data only. It does not ingest real telemetry, perform automated containment, or require AWS. The optional AWS target is ECS Fargate; no AWS resources are created by this repository foundation.
 
@@ -18,25 +18,27 @@ The project uses synthetic sample data only. It does not ingest real telemetry, 
 - [Development conventions](docs/development.md)
 - [CI checks, security gates, and maintenance](docs/ci-security.md)
 - [Dependency review and pending upgrade decisions](docs/dependency-review.md)
+- [Optional ECS decisions and limitations](docs/decisions/0003-optional-ecs-foundation.md)
+- [Deployment prerequisites, costs, and retention](docs/deployment.md)
 
-## Planned repository structure
+## Repository structure
 
 ```text
 backend/                 Flask API package, models, migrations, and tests
 database/                Synthetic seed data and derived PostgreSQL image
 docs/                    Architecture, API, threat model, and decisions
 frontend/                React + TypeScript + Vite application
-infra/terraform/         Reserved for the optional later AWS milestone
+infra/terraform/         Optional ECS configuration, locked provider, and mocked tests
 scripts/                 Local validation helpers
 docker-compose.yml       Local PostgreSQL, API, and frontend services
 ```
 
-The API includes health checks, session login/logout, role-protected finding reads and analyst writes, bounded filtering and pagination, note creation, and audit history. Only synthetic findings belong in this project. Terraform and deployment remain later work.
+The API includes health checks, session login/logout, role-protected finding reads and analyst writes, bounded filtering and pagination, note creation, and audit history. Only synthetic findings belong in this project. Terraform validation is available through the [infrastructure setup](infra/terraform/README.md); it provisions nothing. Existing application Dockerfiles remain development images.
 
 ## Local prerequisites
 
 - Python 3.12
-- Node.js 24 LTS and npm
+- Node.js 24 LTS and npm; use the patch pinned in .nvmrc when evaluating dependency upgrades
 - Docker Engine with Docker Compose v2 for the local development stack
 - Git
 
@@ -67,7 +69,7 @@ Never commit `.env`, passwords, session secrets, real findings, or production te
 1. Design and foundation — merged
 2. Flask API, PostgreSQL migrations, findings, notes, audit, sessions, and authorization — merged
 3. Dashboard and local Docker Compose workflow — merged and exercised in CI
-4. Pull-request CI, tests, and security checks — implemented
-5. Terraform and optional ECS Fargate deployment
+4. Pull-request CI, tests, and security checks — merged
+5. Terraform and optional ECS Fargate path — configuration and mocked validation prepared; live prerequisites remain
 6. Security scenarios, documentation, and portfolio walkthrough
 

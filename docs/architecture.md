@@ -4,7 +4,7 @@
 
 The Cloud Security Findings Tracker is a compact, single-application portfolio project. It presents synthetic cloud-security findings, supports analyst investigation and status updates, and records a history of those actions. It is not a SIEM, alert detector, multi-tenant service, or automated response system.
 
-The local application must be testable without an AWS account. AWS is an optional later deployment target and remains outside this milestone.
+The local application must be testable without an AWS account. The optional ECS Terraform foundation can be validated without AWS credentials. No AWS resources are provisioned or deployed.
 
 ## Components
 
@@ -25,14 +25,14 @@ flowchart LR
     ECS -. optional .-> RDS[(Managed PostgreSQL)]
 ```
 
-The planned ECS path is not part of the local runtime, and no AWS infrastructure is included in this foundation.
+The ECS path is not part of the local runtime or an automated deployment pipeline. Terraform defines its network, IAM, encrypted database/registry/logging, secrets envelope, task contract, and HTTPS edge. See [ADR 0003](decisions/0003-optional-ecs-foundation.md) and [deployment prerequisites](deployment.md) for the boundary between validated configuration and untested live behavior.
 
 ## Trust boundaries
 
 1. **Browser to application:** the browser is untrusted. The API validates every field, authenticates every protected request, checks the user's role on every action, and applies CSRF protection to cookie-authenticated state changes.
 2. **Application to PostgreSQL:** queries are parameterized through SQLAlchemy. The database stores passwords only as Argon2id hashes and stores server-side session state separately from browser cookies. The local Compose identity also runs migrations; separate migration and least-privilege runtime identities, including append-only audit permissions, must be configured before deployment.
-3. **Developer and dependency supply chain:** pull requests run tests, code analysis, dependency auditing, full-history secret scanning, and container scans. Actions and scanner archives are pinned; jobs have read-only repository permissions and bounded execution. The active `Protect main` ruleset enforces these checks before merging. Infrastructure checks follow when Terraform is introduced; see [CI policy](ci-security.md).
-4. **Optional AWS boundary:** only a later, separately reviewed milestone may add cloud resources. Local tests and CI do not need AWS credentials.
+3. **Developer and dependency supply chain:** pull requests run tests, code analysis, dependency auditing, full-history secret scanning, container scans, Terraform validation/mocked tests, and infrastructure scanning. Actions, tool archives, and the provider are pinned; jobs have read-only repository permissions and bounded execution. The active `Protect main` ruleset enforces the eleven check names; infrastructure validation is included in an existing required check. See [CI policy](ci-security.md).
+4. **Optional AWS boundary:** configuration exists for review, with deployment disabled and no tasks/clients enabled by default. Live resources require separate account, region, cost, production-image, secret, exposure, and cleanup approval. Local tests and CI do not need AWS credentials.
 
 ## Request flow
 
