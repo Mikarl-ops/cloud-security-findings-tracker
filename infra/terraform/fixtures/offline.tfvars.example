@@ -1,5 +1,6 @@
 # Synthetic inputs for scanning and mocked tests only. These are not deployable identities or artifacts.
 aws_account_id            = "000000000000"
+application_hostname      = "tracker.example.invalid"
 aws_region                = "ap-southeast-1"
 availability_zones        = ["ap-southeast-1a", "ap-southeast-1b"]
 certificate_arn           = "arn:aws:acm:ap-southeast-1:000000000000:certificate/00000000-0000-0000-0000-000000000000"

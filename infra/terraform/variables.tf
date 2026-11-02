@@ -112,3 +112,16 @@ variable "desired_count" {
     error_message = "Use zero, one, or two demonstration tasks."
   }
 }
+
+variable "application_hostname" {
+  description = "Reviewed lowercase certificate/DNS hostname, without a scheme or port."
+  type        = string
+  validation {
+    condition = (
+      length(var.application_hostname) <= 253 &&
+      var.application_hostname != "127.0.0.1" &&
+      can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?([.][a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$", var.application_hostname))
+    )
+    error_message = "Supply an explicit lowercase hostname matching the reviewed certificate and DNS."
+  }
+}

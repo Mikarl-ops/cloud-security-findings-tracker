@@ -1,9 +1,11 @@
 """Fixed production serving defaults; no request URLs, credentials, or bodies in access logs."""
 
+import tempfile
+
 bind = "127.0.0.1:8000"
 workers = 2
 worker_class = "sync"
-worker_tmp_dir = "/tmp"
+worker_tmp_dir = tempfile.gettempdir()
 timeout = 30
 graceful_timeout = 30
 max_requests = 1000

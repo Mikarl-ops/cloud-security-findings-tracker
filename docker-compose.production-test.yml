@@ -1,0 +1,152 @@
+# Disposable local/CI proof of the production images. No published images or AWS access.
+x-api: &api
+  image: tracker-api-production:test
+  build:
+    context: .
+    dockerfile: backend/Dockerfile.production
+  read_only: true
+  init: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp]
+  volumes:
+    - type: bind
+      source: ${TEST_TLS_DIR:?Prepare the disposable TLS fixture}/ca.crt
+      target: /etc/tracker/test-ca.pem
+      read_only: true
+    - type: bind
+      source: ./scripts/provision_production_test.py
+      target: /test/provision.py
+      read_only: true
+    - type: bind
+      source: ./scripts/assert_production_runtime.py
+      target: /test/assert_runtime.py
+      read_only: true
+
+x-app-environment: &app-environment
+  APP_ENV: production
+  APP_HOST: localhost
+  SESSION_COOKIE_SECURE: "true"
+  SECRET_KEY: ${PRODUCTION_SECRET_KEY:?Prepare disposable credentials}
+  DISPOSABLE_PRODUCTION_TEST: "1"
+
+x-frontend: &frontend
+  image: tracker-frontend-production:test
+  build:
+    context: .
+    dockerfile: frontend/Dockerfile.production
+  environment:
+    APP_HOST: localhost
+  read_only: true
+  init: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp]
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: database/Dockerfile
+    environment:
+      POSTGRES_DB: tracker
+      POSTGRES_USER: tracker_migration
+      POSTGRES_PASSWORD: ${PRODUCTION_DB_PASSWORD:?Prepare disposable credentials}
+    command:
+      - sh
+      - -c
+      - >-
+        cp /test/server.key /tmp/test-server.key &&
+        chmod 600 /tmp/test-server.key &&
+        exec docker-entrypoint.sh postgres -c ssl=on
+        -c ssl_cert_file=/test/server.crt -c ssl_key_file=/tmp/test-server.key
+    volumes:
+      - production-test-db:/var/lib/postgresql
+      - type: bind
+        source: ${TEST_TLS_DIR}/server.crt
+        target: /test/server.crt
+        read_only: true
+      - type: bind
+        source: ${TEST_TLS_DIR}/server.key
+        target: /test/server.key
+        read_only: true
+    healthcheck:
+      test: [CMD, pg_isready, -U, tracker_migration, -d, tracker]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  admin:
+    <<: *api
+    profiles: [setup]
+    environment:
+      <<: *app-environment
+      DATABASE_URL: postgresql+psycopg://tracker_migration:${PRODUCTION_DB_PASSWORD}@db:5432/tracker?sslmode=verify-full&sslrootcert=/etc/tracker/test-ca.pem
+      RUNTIME_DB_PASSWORD: ${RUNTIME_DB_PASSWORD:?Prepare disposable credentials}
+    command:
+      - sh
+      - -c
+      - >-
+        flask --app tracker:create_app db upgrade &&
+        flask --app tracker:create_app seed-demo &&
+        python /test/provision.py
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *api
+    environment:
+      <<: *app-environment
+      DATABASE_URL: postgresql+psycopg://tracker_runtime:${RUNTIME_DB_PASSWORD}@db:5432/tracker?sslmode=verify-full&sslrootcert=/etc/tracker/test-ca.pem
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/ready', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  frontend:
+    <<: *frontend
+    network_mode: service:api
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/healthz]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  edge:
+    <<: *frontend
+    command: [nginx, -c, /test/edge.conf, -g, "daemon off;"]
+    ports:
+      - "127.0.0.1:8443:8443"
+    healthcheck:
+      test: [CMD, nginx, -t, -c, /test/edge.conf]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - type: bind
+        source: ./scripts/production-edge.conf
+        target: /test/edge.conf
+        read_only: true
+      - type: bind
+        source: ${TEST_TLS_DIR}/server.crt
+        target: /test/server.crt
+        read_only: true
+      - type: bind
+        source: ${TEST_TLS_DIR}/server.key
+        target: /test/server.key
+        read_only: true
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+volumes:
+  production-test-db:
