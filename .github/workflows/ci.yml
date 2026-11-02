@@ -85,7 +85,9 @@ jobs:
         with:
           python-version-file: .python-version
       - name: Validate the API contract and documentation
-        run: python scripts/validate_contract.py
+        run: |
+          python scripts/validate_contract.py
+          python scripts/validate_production_assets.py
       - name: Validate GitHub Actions workflows
         run: |
           curl --fail --silent --show-error --location --retry 3 \
@@ -127,6 +129,7 @@ jobs:
       COMPOSE_PROJECT_NAME: tracker-ci-${{ github.run_id }}-${{ github.run_attempt }}
       POSTGRES_DB: tracker
       POSTGRES_USER: tracker
+      PRODUCTION_COMPOSE_PROJECT_NAME: tracker-production-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -155,11 +158,32 @@ jobs:
           docker compose exec -T api flask --app tracker:create_app seed-demo | grep -F '0 added, 6 already present'
       - name: Exercise authenticated workflows through the frontend proxy
         run: python scripts/smoke_test.py
+      - name: Prepare ephemeral production-test TLS and credentials
+        run: python scripts/prepare_production_test.py --directory "$RUNNER_TEMP/tracker-production-tls"
+      - name: Build and verify production images through local HTTPS
+        env:
+          COMPOSE_FILE: docker-compose.production-test.yml
+          COMPOSE_PROJECT_NAME: ${{ env.PRODUCTION_COMPOSE_PROJECT_NAME }}
+        run: |
+          docker compose config --quiet
+          docker compose build --pull db admin api frontend edge
+          docker compose up -d --wait --wait-timeout 90 db
+          docker compose run --rm -T --no-deps admin
+          docker compose up -d --wait --wait-timeout 180 api frontend edge
+          python scripts/production_smoke.py
       - name: Show service diagnostics on failure
         if: failure()
         run: |
           docker compose ps --all
           docker compose logs --no-color --tail=100
+          if [ -n "${TEST_TLS_DIR:-}" ]; then
+            docker compose -f docker-compose.production-test.yml -p "$PRODUCTION_COMPOSE_PROJECT_NAME" --profile setup ps --all
+            docker compose -f docker-compose.production-test.yml -p "$PRODUCTION_COMPOSE_PROJECT_NAME" --profile setup logs --no-color --tail=100
+          fi
       - name: Remove the disposable stack and database
         if: always()
-        run: docker compose down --volumes --remove-orphans
+        run: |
+          docker compose down --volumes --remove-orphans
+          if [ -n "${TEST_TLS_DIR:-}" ]; then
+            docker compose -f docker-compose.production-test.yml -p "$PRODUCTION_COMPOSE_PROJECT_NAME" --profile setup down --volumes --remove-orphans
+          fi

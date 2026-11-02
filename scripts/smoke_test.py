@@ -1,4 +1,4 @@
-"""Exercise the disposable Compose stack through Vite's same-origin API proxy.
+"""Exercise a disposable Compose stack through its same-origin API proxy.
 
 Creates synthetic accounts and a finding in the Compose database. Run only against
 a disposable local stack; CI removes that stack and its volume after the test.
@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import json
 import secrets
+import ssl
 import subprocess
 from http.cookiejar import CookieJar
 from urllib.error import HTTPError
-from urllib.request import HTTPCookieProcessor, Request, build_opener
+from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener
 
 BASE_URL = "http://127.0.0.1:5173"
 SETUP_FIXTURE = """
@@ -43,9 +44,15 @@ with app.app_context():
 
 
 class ApiClient:
-    def __init__(self) -> None:
+    def __init__(
+        self, base_url: str = BASE_URL, tls_context: ssl.SSLContext | None = None
+    ) -> None:
+        self.base_url = base_url
         self.cookies = CookieJar()
-        self.opener = build_opener(HTTPCookieProcessor(self.cookies))
+        handlers = [HTTPCookieProcessor(self.cookies)]
+        if tls_context is not None:
+            handlers.append(HTTPSHandler(context=tls_context))
+        self.opener = build_opener(*handlers)
 
     def request(
         self,
@@ -57,13 +64,17 @@ class ApiClient:
         csrf: str | None = None,
     ) -> dict:
         headers = {"Accept": "application/json"}
+        if self.base_url.startswith("https://"):
+            headers["Referer"] = self.base_url + "/"
         if csrf:
             headers["X-CSRFToken"] = csrf
         body = None
         if payload is not None:
             headers["Content-Type"] = "application/json"
             body = json.dumps(payload).encode()
-        request = Request(BASE_URL + "/api/v1" + path, data=body, headers=headers, method=method)
+        request = Request(
+            self.base_url + "/api/v1" + path, data=body, headers=headers, method=method
+        )
         try:
             response = self.opener.open(request, timeout=10)
         except HTTPError as error:
@@ -84,7 +95,10 @@ class ApiClient:
         )
 
 
-def main() -> None:
+def main(
+    *, base_url: str = BASE_URL, tls_context: ssl.SSLContext | None = None,
+    fixture_service: str = "api",
+) -> None:
     nonce = secrets.token_hex(6)
     fixture = {
         "nonce": nonce,
@@ -92,15 +106,21 @@ def main() -> None:
         "viewer": "ci-viewer-" + nonce,
         "password": secrets.token_urlsafe(32),
     }
+    if fixture_service not in {"api", "admin"}:
+        raise ValueError("Use a documented disposable fixture service.")
+    operation = (
+        ["run", "--rm", "-T", "--no-deps", "admin"] if fixture_service == "admin"
+        else ["exec", "-T", "api"]
+    )
     setup = subprocess.run(
-        ["docker", "compose", "exec", "-T", "api", "python", "-c", SETUP_FIXTURE],
+        ["docker", "compose", *operation, "python", "-c", SETUP_FIXTURE],
         input=json.dumps(fixture), text=True, capture_output=True, check=True,
     )
     finding_id = setup.stdout.strip()
     path = "/findings/" + finding_id
 
-    analyst = ApiClient()
-    with analyst.opener.open(BASE_URL, timeout=10) as response:
+    analyst = ApiClient(base_url, tls_context)
+    with analyst.opener.open(base_url, timeout=10) as response:
         assert response.status == 200 and b'<div id="root">' in response.read()
     assert analyst.request("GET", "/health/ready")["status"] == "ready"
     analyst.request("GET", "/findings", expected=401)
@@ -108,7 +128,7 @@ def main() -> None:
     assert analyst.request("GET", "/auth/session")["user"]["role"] == "analyst"
     assert analyst.request("GET", path)["title"] == "Synthetic CI finding"
 
-    viewer = ApiClient()
+    viewer = ApiClient(base_url, tls_context)
     viewer.login(fixture["viewer"], fixture["password"])
     assert viewer.request("GET", path)["status"] == "new"
     viewer.request(

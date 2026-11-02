@@ -9,13 +9,13 @@ GitHub Actions runs the `Quality` and `Security` workflows for pull requests int
 | Backend tests and lint | Ruff findings, failing pytest cases, dependency conflicts, or installation errors |
 | Frontend tests and build | Invalid dependency trees, ESLint discovery/rule regressions, TypeScript, Vitest, installation, or build errors |
 | API contract and workflow validation | Invalid API/docs or tracked-file hygiene, actionlint errors, Terraform formatting/schema/mock-test failures, or unexcepted high/critical infrastructure findings |
-| PostgreSQL and Compose smoke | Image/startup failures, schema drift, non-idempotent seeding, or a failed HTTP workflow assertion |
+| PostgreSQL and Compose smoke | Development/production image or startup failures, schema/seed drift, TLS/header/cookie/workflow failures, or incorrect database/runtime restrictions |
 | Python static analysis | Bandit findings with severity and confidence both medium or higher |
-| Python dependency audit | Any known advisory in the application or scanner lock, or incomplete dependency collection |
+| Python dependency audit | Any known advisory in the development, production runtime, or scanner lock, or incomplete dependency collection |
 | Frontend dependency audit | Moderate, high, or critical advisories, or an audit/registry error; low findings remain visible in the job log |
 | Repository secret scan | Any Gitleaks detection across all fetched Git history; output is fully redacted |
-| Container scan (api) | High or critical OS or package vulnerabilities, including unfixed findings, or scanner/build errors |
-| Container scan (frontend) | The same gate for the frontend development image |
+| Container scan (api) | High or critical vulnerabilities, including unfixed findings, or build/scan errors in either API image variant |
+| Container scan (frontend) | The same gate for both frontend development and production images |
 | Container scan (db) | The same gate for the derived PostgreSQL image |
 
 No check uses `continue-on-error`, an advisory ignore list, or an unfixed-vulnerability exclusion. A failed scanner or database download fails its check rather than reporting a clean scan.
@@ -31,11 +31,15 @@ No check uses `continue-on-error`, an advisory ignore list, or an unfixed-vulner
 
 The Compose smoke test checks the UI response and exercises JSON requests through Vite's same-origin proxy. It verifies PostgreSQL readiness, migrations, seed idempotence, session login/logout, missing-CSRF rejection, viewer write rejection, analyst status changes, stale-version rejection, notes, and audit history. It is an HTTP integration test. The separate frontend test suite verifies rendering and interactions, including HTML-like text staying inert.
 
+The same required job also builds the production variants, initializes a disposable TLS database through an explicit admin service, and runs the workflow through a temporary HTTPS edge. Additional assertions cover certificate trust, Secure cookies, CSP/headers, static asset cache policy, Host rejection, actual runtime PostgreSQL ACL denials, TLS usage, UID/capabilities/mount flags/no-new-privileges, and loopback binding. Credentials and keys are generated outside Git, masked in CI, and discarded with the runner. The public RDS CA snapshot is checksum/expiry validated. See [production image verification](production-images.md).
+
 ## Image maintenance
 
 The API uses Python 3.12 on Alpine 3.24 and the application lock. All three Dockerfiles apply available Alpine package updates. The frontend removes npm after its locked install and starts Vite directly with Node. PostgreSQL starts directly as its existing `postgres` user; its unused `gosu` helper and embedded Go runtime are removed. The other services also run as non-root users.
 
 The PostgreSQL 18 named volume mounts at `/var/lib/postgresql`, matching its versioned data layout. Do not point a populated older-major database volume at a new major version without a backup and migration plan.
+
+The production API installs only its locked runtime dependencies and application wheel, then removes pip/build artifacts. It runs Gunicorn without a management socket or startup migrations. The production frontend copies compiled assets into Alpine Nginx, writes only temporary configuration/PID/cache files, and ships no Node/npm/source tree. Required API/frontend scan jobs build and scan both variants under their existing names. No registry publication is performed.
 
 Base image tags and OS repositories receive security updates. Application packages, actions, and scanner versions are pinned, but complete image bit-for-bit reproducibility is not claimed. CI builds with `--pull` and scans the resulting images. Any future digest pinning must include a process for updating and rescanning those digests.
 
@@ -60,12 +64,15 @@ python -m pip install -r scripts/requirements-security.txt
 python scripts/validate_contract.py
 python -m bandit -r backend/src scripts backend/start_dev.py -ll -ii
 python -m pip_audit --strict --disable-pip --no-deps -r backend/requirements.lock
+python -m pip_audit --strict --disable-pip --no-deps -r backend/requirements-production.lock
 python -m pip_audit --strict --disable-pip --no-deps -r scripts/requirements-security.txt
 ```
 
 Install the workflow-pinned versions of actionlint, Gitleaks, and Trivy using the official release archives and digests in the workflows. Run `actionlint`, `gitleaks git --redact=100 --log-opts="--all" .`, and the same `trivy image` command as CI against locally built images.
 
 For the integration test, start a **disposable** Compose stack using the [local setup](../README.md). Run `docker compose exec -T api flask --app tracker:create_app db check`, then `python scripts/smoke_test.py`. The script creates two synthetic accounts and one finding, then adds a status change, note, and audit records. It is intended for a database that can be discarded after testing.
+
+For the production variants, follow the separate [HTTPS reproduction steps](production-images.md); do not run the fixture's administrative helper against live data. Both stacks are removed by CI cleanup.
 
 ## Dependency remediation and exceptions
 

@@ -33,6 +33,6 @@ Two resource-specific, expiring exceptions are documented in the ADR. The low-se
 - Terraform creates only the application secret envelope. Passwords, DATABASE_URL, SECRET_KEY, and secret versions must remain outside Terraform configuration, variables, outputs, and state.
 - Local state, saved plans, provider caches, variable files, and CLI credentials are ignored by Git. The committed lock and the nonsecret .example fixture are intentionally tracked.
 - No remote state backend or cloud credentials are configured. Secure, encrypted, access-controlled remote state with locking must be established separately before live use.
-- The existing API and frontend Dockerfiles run development servers. Production images must satisfy the task definition's non-root, read-only, port, health-check, and proxy contract before activation.
+- Default Dockerfiles run development servers. Separate production variants implement the task definition's non-root, read-only, loopback API, static proxy, and /healthz contract; see [local verification](../../docs/production-images.md). Set application_hostname consistently with the reviewed certificate/DNS, use the public CA path in the runtime database secret, and still review actual image digests and live behavior before activation.
 - Do not run live plan, apply, destroy, image publication, or AWS commands as part of this validation workflow.
 

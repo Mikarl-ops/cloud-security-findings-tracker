@@ -39,6 +39,7 @@ resource "aws_ecs_task_definition" "application" {
       mountPoints            = [{ sourceVolume = "api-tmp", containerPath = "/tmp", readOnly = false }]
       environment = [
         { name = "APP_ENV", value = "production" },
+        { name = "APP_HOST", value = var.application_hostname },
         { name = "SESSION_COOKIE_SECURE", value = "true" }
       ]
       secrets = [
@@ -73,8 +74,9 @@ resource "aws_ecs_task_definition" "application" {
       linuxParameters        = { initProcessEnabled = true, capabilities = { drop = ["ALL"] } }
       mountPoints            = [{ sourceVolume = "frontend-tmp", containerPath = "/tmp", readOnly = false }]
       dependsOn              = [{ containerName = "api", condition = "HEALTHY" }]
+      environment            = [{ name = "APP_HOST", value = var.application_hostname }]
       healthCheck = {
-        command     = ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+        command     = ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1"]
         interval    = 30
         timeout     = 5
         retries     = 3

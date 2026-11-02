@@ -52,6 +52,8 @@ jobs:
           python -m pip check
       - name: Audit the complete application dependency lock
         run: python -m pip_audit --strict --disable-pip --no-deps -r backend/requirements.lock
+      - name: Audit the production runtime dependency lock
+        run: python -m pip_audit --strict --disable-pip --no-deps -r backend/requirements-production.lock
       - name: Audit the scanner dependency lock
         run: python -m pip_audit --strict --disable-pip --no-deps -r scripts/requirements-security.txt
 
@@ -101,22 +103,30 @@ jobs:
         include:
           - service: api
             dockerfile: backend/Dockerfile
+            production_dockerfile: backend/Dockerfile.production
             image: tracker-api:ci
           - service: frontend
             dockerfile: frontend/Dockerfile
+            production_dockerfile: frontend/Dockerfile.production
             image: tracker-frontend:ci
           - service: db
             dockerfile: database/Dockerfile
+            production_dockerfile: ""
             image: tracker-db:ci
     env:
       IMAGE_REF: ${{ matrix.image }}
       DOCKERFILE: ${{ matrix.dockerfile }}
+      PRODUCTION_DOCKERFILE: ${{ matrix.production_dockerfile }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Build the application image
-        run: docker build --pull --file "$DOCKERFILE" --tag "$IMAGE_REF" .
+        run: |
+          docker build --pull --file "$DOCKERFILE" --tag "$IMAGE_REF" .
+          if [ -n "$PRODUCTION_DOCKERFILE" ]; then
+            docker build --pull --file "$PRODUCTION_DOCKERFILE" --tag "${IMAGE_REF}-production" .
+          fi
       - name: Install verified Trivy 0.76.1
         run: |
           curl --fail --silent --show-error --location --retry 3 \
@@ -125,6 +135,8 @@ jobs:
           echo "c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0  $RUNNER_TEMP/trivy.tar.gz" | sha256sum --check -
           tar -xzf "$RUNNER_TEMP/trivy.tar.gz" -C "$RUNNER_TEMP" trivy
       - name: Reject high and critical image vulnerabilities
-        run: >-
-          "$RUNNER_TEMP/trivy" image --image-src docker --scanners vuln
-          --severity HIGH,CRITICAL --exit-code 1 --no-progress --timeout 5m "$IMAGE_REF"
+        run: |
+          "$RUNNER_TEMP/trivy" image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress --timeout 5m "$IMAGE_REF"
+          if [ -n "$PRODUCTION_DOCKERFILE" ]; then
+            "$RUNNER_TEMP/trivy" image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress --timeout 5m "${IMAGE_REF}-production"
+          fi

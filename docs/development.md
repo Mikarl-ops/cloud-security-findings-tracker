@@ -45,6 +45,7 @@ Before a pull request, run the checks relevant to changed files:
 - Backend (from backend/): python -m pytest and python -m ruff check --config pyproject.toml src tests start_dev.py ../scripts.
 - Frontend: npm ls, npm test, npm run typecheck, npm run lint, npm run lint:config, npm run build, and npm audit --audit-level=moderate.
 - Data and docs: run python scripts/validate_contract.py and inspect Markdown links.
+- Production artifacts: validate the public CA snapshot, audit requirements-production.lock, and follow the [disposable HTTPS image verification](production-images.md). The runtime must not self-migrate, own schema, or rewrite/delete audit records.
 - Infrastructure: Terraform formatting, locked initialization without a backend, schema validation, mocked plan tests, and the high/critical Trivy configuration gate. Follow the [infrastructure commands](../infra/terraform/README.md); use synthetic fixtures and no AWS credentials.
 
 The quality and security workflows run these checks automatically on pull requests. See [CI and security](ci-security.md) for scanner commands, check thresholds, the disposable Compose integration test, dependency override maintenance, exceptions, and the active GitHub merge rules.
