@@ -1,0 +1,22 @@
+FROM node:24-alpine AS build
+RUN apk upgrade --no-cache
+WORKDIR /build
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+FROM alpine:3.24 AS runtime
+RUN apk upgrade --no-cache \
+    && apk add --no-cache nginx \
+    && addgroup -g 10001 app \
+    && adduser -D -H -G app -u 10001 app
+COPY --from=build /build/dist /srv/frontend
+COPY frontend/production/nginx.conf.template /etc/tracker/nginx.conf.template
+COPY frontend/production/start.sh /usr/local/bin/start-frontend
+RUN chmod 755 /usr/local/bin/start-frontend
+USER 10001:10001
+EXPOSE 8080
+STOPSIGNAL SIGQUIT
+ENTRYPOINT ["/usr/local/bin/start-frontend"]
+CMD ["nginx", "-c", "/tmp/nginx.conf", "-g", "daemon off;"]
