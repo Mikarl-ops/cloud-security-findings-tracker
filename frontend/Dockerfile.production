@@ -19,4 +19,4 @@ USER 10001:10001
 EXPOSE 8080
 STOPSIGNAL SIGQUIT
 ENTRYPOINT ["/usr/local/bin/start-frontend"]
-CMD ["nginx", "-c", "/tmp/nginx.conf", "-g", "daemon off;"]
+CMD ["nginx", "-e", "/dev/stderr", "-c", "/tmp/nginx.conf", "-g", "daemon off;"]

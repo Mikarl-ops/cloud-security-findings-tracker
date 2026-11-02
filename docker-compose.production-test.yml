@@ -123,11 +123,11 @@ services:
 
   edge:
     <<: *frontend
-    command: [nginx, -c, /test/edge.conf, -g, "daemon off;"]
+    command: [nginx, -e, /dev/stderr, -c, /test/edge.conf, -g, "daemon off;"]
     ports:
       - "127.0.0.1:8443:8443"
     healthcheck:
-      test: [CMD, nginx, -t, -c, /test/edge.conf]
+      test: [CMD, nginx, -e, /dev/stderr, -t, -c, /test/edge.conf]
       interval: 5s
       timeout: 5s
       retries: 12

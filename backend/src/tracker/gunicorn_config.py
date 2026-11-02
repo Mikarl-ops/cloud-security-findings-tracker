@@ -16,3 +16,4 @@ access_log_format = "%(m)s %(s)s %(L)s %({x-request-id}o)s"
 forwarded_allow_ips = "127.0.0.1,::1"
 # Werkzeug owns scheme handling after the frontend normalizes its proxy headers.
 secure_scheme_headers = {}
+control_socket_disable = True
