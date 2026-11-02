@@ -20,6 +20,8 @@ The project uses synthetic sample data only. It does not ingest real telemetry, 
 - [Dependency review and pending upgrade decisions](docs/dependency-review.md)
 - [Optional ECS decisions and limitations](docs/decisions/0003-optional-ecs-foundation.md)
 - [Deployment prerequisites, costs, and retention](docs/deployment.md)
+- [Production images and local HTTPS verification](docs/production-images.md)
+- [Production serving and proxy decisions](docs/decisions/0004-production-serving-and-local-tls.md)
 
 ## Repository structure
 
@@ -33,7 +35,7 @@ scripts/                 Local validation helpers
 docker-compose.yml       Local PostgreSQL, API, and frontend services
 ```
 
-The API includes health checks, session login/logout, role-protected finding reads and analyst writes, bounded filtering and pagination, note creation, and audit history. Only synthetic findings belong in this project. Terraform validation is available through the [infrastructure setup](infra/terraform/README.md); it provisions nothing. Existing application Dockerfiles remain development images.
+The API includes health checks, session login/logout, role-protected finding reads and analyst writes, bounded filtering and pagination, note creation, and audit history. Only synthetic findings belong in this project. Terraform validation is available through the [infrastructure setup](infra/terraform/README.md); it provisions nothing. Default Dockerfiles remain development images; separate Dockerfile.production variants provide Gunicorn and static Nginx serving, verified through a disposable HTTPS/TLS database harness.
 
 ## Local prerequisites
 
@@ -58,7 +60,7 @@ The Vite development server proxies `/api` requests to the API, so the browser u
 
 ## Automated checks
 
-The [quality workflow](.github/workflows/ci.yml) tests both applications and starts a disposable PostgreSQL/Compose stack. The [security workflow](.github/workflows/security.yml) runs Bandit, pip-audit, npm audit, Gitleaks, and Trivy. Actions use pinned commits and read-only repository access. The active `Protect main` ruleset requires a pull request and all eleven checks before merging. See the [check policy](docs/ci-security.md) for local commands, failure thresholds, the reviewed minimatch security override, exceptions, and enforced merge settings.
+The [quality workflow](.github/workflows/ci.yml) tests both applications, the default development stack, and the production images through local HTTPS and database TLS with restricted runtime permissions. The [security workflow](.github/workflows/security.yml) runs Bandit, pip-audit for development and production locks, npm audit, Gitleaks, and Trivy for all five development/production/database image variants. Actions use pinned commits and read-only repository access. The active `Protect main` ruleset requires a pull request and all eleven checks before merging. See the [check policy](docs/ci-security.md) for reproduction, thresholds, exceptions, and enforced merge settings.
 
 ## Safety and data handling
 
@@ -70,6 +72,6 @@ Never commit `.env`, passwords, session secrets, real findings, or production te
 2. Flask API, PostgreSQL migrations, findings, notes, audit, sessions, and authorization — merged
 3. Dashboard and local Docker Compose workflow — merged and exercised in CI
 4. Pull-request CI, tests, and security checks — merged
-5. Terraform and optional ECS Fargate path — configuration and mocked validation prepared; live prerequisites remain
+5. Terraform and optional ECS Fargate path — configuration, production serving images, and local validation prepared; live prerequisites remain
 6. Security scenarios, documentation, and portfolio walkthrough
 

@@ -25,12 +25,12 @@ flowchart LR
     ECS -. optional .-> RDS[(Managed PostgreSQL)]
 ```
 
-The ECS path is not part of the local runtime or an automated deployment pipeline. Terraform defines its network, IAM, encrypted database/registry/logging, secrets envelope, task contract, and HTTPS edge. See [ADR 0003](decisions/0003-optional-ecs-foundation.md) and [deployment prerequisites](deployment.md) for the boundary between validated configuration and untested live behavior.
+The ECS path is not deployed. Terraform defines its network, IAM, encrypted database/registry/logging, secrets envelope, task contract, and HTTPS edge. Separate production image definitions implement the loopback Gunicorn API and static Nginx frontend; the local TLS harness tests them without AWS. See [ADR 0003](decisions/0003-optional-ecs-foundation.md), [ADR 0004](decisions/0004-production-serving-and-local-tls.md), and [deployment prerequisites](deployment.md) for validated behavior and remaining live boundaries.
 
 ## Trust boundaries
 
 1. **Browser to application:** the browser is untrusted. The API validates every field, authenticates every protected request, checks the user's role on every action, and applies CSRF protection to cookie-authenticated state changes.
-2. **Application to PostgreSQL:** queries are parameterized through SQLAlchemy. The database stores passwords only as Argon2id hashes and stores server-side session state separately from browser cookies. The local Compose identity also runs migrations; separate migration and least-privilege runtime identities, including append-only audit permissions, must be configured before deployment.
+2. **Application to PostgreSQL:** queries are parameterized through SQLAlchemy. The database stores passwords only as Argon2id hashes and stores session state separately from browser cookies. Development Compose uses a shared local identity. The production TLS fixture separates initialization from a restricted runtime identity and verifies append-only audit/note permissions; equivalent live RDS grants remain a deployment prerequisite.
 3. **Developer and dependency supply chain:** pull requests run tests, code analysis, dependency auditing, full-history secret scanning, container scans, Terraform validation/mocked tests, and infrastructure scanning. Actions, tool archives, and the provider are pinned; jobs have read-only repository permissions and bounded execution. The active `Protect main` ruleset enforces the eleven check names; infrastructure validation is included in an existing required check. See [CI policy](ci-security.md).
 4. **Optional AWS boundary:** configuration exists for review, with deployment disabled and no tasks/clients enabled by default. Live resources require separate account, region, cost, production-image, secret, exposure, and cleanup approval. Local tests and CI do not need AWS credentials.
 

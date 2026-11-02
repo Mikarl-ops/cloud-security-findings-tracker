@@ -4,7 +4,7 @@
 
 The Terraform foundation defines the ECS Fargate path and is validated through formatting, provider-schema validation, mocked security tests, and static infrastructure scanning. No AWS stack exists as a result of this work. No image is published, no secret value is created, and no live plan, apply, migration, or teardown has been run.
 
-The existing Dockerfiles and Compose stack are for local development. They start development servers and must not be used as production artifacts. This document describes remaining preparation and a future approval sequence, rather than a tested live runbook.
+The default Dockerfiles and Compose stack remain for local development. Separate production image definitions run Gunicorn and a static Nginx frontend; the [local verification guide](production-images.md) exercises them over HTTPS and database TLS. These local checks do not establish that a live AWS deployment, permissions, or teardown work.
 
 See [ADR 0003](decisions/0003-optional-ecs-foundation.md) for resource choices, limitations, and the two expiring scanner exceptions. See the [Terraform README](../infra/terraform/README.md) for commands that validate without AWS credentials.
 
@@ -34,10 +34,10 @@ The frontend and API share a task boundary and task role. Only the frontend port
 2. Review current regional service pricing, quotas, AZ names, RDS PostgreSQL 18 patch availability, instance-class support, and the existing certificate. Mocked tests do not establish any of these.
 3. Establish encrypted, access-controlled remote state with locking and a recovery procedure. This code configures no backend. Terraform state and saved plans may contain sensitive metadata even when secret values are kept outside Terraform.
 4. Prepare least-privilege operator roles and separate roles for any image publication, migrations, and application activation. CI has no AWS role, credentials, or deployment permissions; no GitHub Actions OIDC deployment trust is created here.
-5. Build, review, and scan production images, then obtain separate publication approval. Use immutable digests from the two ECR repositories. Repository creation and image publication are separate operations; tasks remain at zero while artifacts are prepared.
-6. Prepare dedicated migration and restricted runtime database identities. The runtime identity must not own the schema or update/delete audit events. Run reviewed migrations and synthetic seeding as an explicit operation; the production API must not run migrations on every worker startup.
+5. Rebuild, review, and scan the production image definitions, then obtain separate publication approval. Use immutable digests from the two ECR repositories. Repository creation and image publication are separate operations; tasks remain at zero while artifacts are prepared.
+6. Prepare dedicated live migration and runtime database identities using the grant model verified in [ADR 0004](decisions/0004-production-serving-and-local-tls.md). The runtime identity must not own schema or update/delete audit events. The local grant helper is deliberately restricted to the disposable test database; it is not a live provisioning tool. Production startup runs no migration or seed command.
 7. Populate the application secret outside Terraform with DATABASE_URL and SECRET_KEY. Use the runtime database user and verified TLS. Never use the RDS administrator as the application user. Define runtime credential rotation and task restart procedures; RDS administrator rotation does not rotate a separately created application user's password.
-8. Review certificate/DNS, client CIDRs, trusted hosts/proxy hops, secure cookies, browser security headers, login/request limits, log redaction, and account creation. No real telemetry or production user data belongs in this demonstration.
+8. Verify the implemented host, proxy-hop, Secure-cookie, browser-header, TLS, and log controls against the actual certificate/DNS, client CIDRs, and ALB configuration. APP_HOST must be identical in both images and match the reviewed application_hostname Terraform input. Review edge limits and account creation. No real telemetry or production user data belongs in this demonstration.
 9. Define alerts and response ownership for failed deployments, unhealthy targets, database/storage issues, authentication abuse, costs, and expiring exceptions. CloudWatch logs and Container Insights provide evidence; they do not by themselves configure operational alerts.
 10. Review a real saved plan with the owner before provisioning. Activation is another explicit step after the stack, artifacts, secret, migrations, and exposure controls have been verified.
 
@@ -45,15 +45,15 @@ The frontend and API share a task boundary and task role. Only the frontend port
 
 | Area | Required behavior before activation |
 |---|---|
-| API | Run a reviewed production WSGI server on task loopback port 8000; preserve readiness/liveness endpoints. The development entrypoint is excluded. |
-| Frontend | Serve built assets on 8080 and proxy /api to 127.0.0.1:8000. Do not run Vite or expose development tooling. Provide the wget health-check executable used by the task. |
+| API | The production image runs Gunicorn on task loopback port 8000 and preserves health endpoints. It excludes the development entrypoint, migrations on startup, and management control socket. |
+| Frontend | The production image serves compiled assets on 8080 and proxies /api to 127.0.0.1:8000. It includes wget and /healthz, and excludes Vite, Node, npm, and source files. |
 | Identity/filesystem | Both images must support UID/GID 10001, read-only roots, dropped capabilities, and /tmp as their only mounted writable path. Configure proxy caches/PID/temp files accordingly. |
-| Database | Verify the RDS CA and hostname using TLS (for example sslmode=verify-full with the correct CA bundle). Never disable certificate verification to pass a smoke test. |
-| Browser/edge | Serve the certificate hostname; configure trusted Host and proxy headers, Secure/HttpOnly/SameSite cookies, CSRF, CSP and other reviewed headers. ALB-to-task HTTP is a documented private-boundary tradeoff, not end-to-end TLS. |
+| Database | Startup requires sslmode=verify-full and an existing absolute CA file. The image contains the [public RDS CA snapshot](../backend/certs/README.md); verify its freshness before deployment. Never disable certificate verification to pass a smoke test. |
+| Browser/edge | Explicit Host validation, bounded proxy trust, Secure/HttpOnly/SameSite cookies, CSRF, CSP, and browser headers are implemented. Verify the live network/header path before exposure. ALB-to-task HTTP is a documented private-boundary tradeoff, not end-to-end TLS. |
 | Secrets/logs | Resolve the two ECS-injected secrets at startup; fail closed when absent. Do not log credentials, cookie values, CSRF tokens, or request bodies containing secrets. |
 | Release checks | Test analyst and viewer workflows, CSRF rejection, stale writes, inert HTML-like notes, logout, header behavior, and health failures against the production images before activating a live service. |
 
-The Terraform task health checks and port declarations describe this contract. They do not prove that the current development images satisfy it.
+Terraform task settings align with these production variants. The local fixture checks their runtime and HTTP behavior; development variants do not satisfy this contract, and no live ECS behavior has been tested.
 
 ## Cost review
 
