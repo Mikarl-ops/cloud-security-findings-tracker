@@ -19,6 +19,7 @@ from .api.common import problem
 from .api.findings import bp as findings_bp
 from .api.health import bp as health_bp
 from .extensions import csrf, db, migrate
+from .production import protect_production_proxy, validate_production
 from .session_store import DatabaseSessionInterface
 
 
@@ -35,8 +36,9 @@ def create_app(test_config: dict | None = None) -> Flask:
         SECRET_KEY=os.environ.get("SECRET_KEY"),
         SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL"),
         APP_ENV=os.environ.get("APP_ENV", "development"),
+        APP_HOST=os.environ.get("APP_HOST"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True},
+        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "hide_parameters": True},
         MAX_CONTENT_LENGTH=16 * 1024,
         WTF_CSRF_ENABLED=True,
         WTF_CSRF_CHECK_DEFAULT=True,
@@ -74,6 +76,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         raise RuntimeError("Set DATABASE_URL to the local PostgreSQL connection string.")
     if app.config.get("APP_ENV") == "production" and not app.config["SESSION_COOKIE_SECURE"]:
         raise RuntimeError("SESSION_COOKIE_SECURE must be enabled in production.")
+    validate_production(app)
 
     db.init_app(app)
     migrate.init_app(app, db, compare_type=True, render_as_batch=True)
@@ -94,6 +97,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         response.headers.setdefault("X-Request-ID", getattr(g, "request_id", str(uuid4())))
         return response
 
+    protect_production_proxy(app)
     csrf.init_app(app)
 
     @app.errorhandler(CSRFError)
