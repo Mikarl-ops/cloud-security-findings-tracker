@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select
 
-from conftest import TEST_PASSWORD, csrf_token
+from conftest import TEST_PASSWORD, csrf_token, login
 from tracker import create_app
 from tracker.extensions import db
 from tracker.models import ServerSession, User
@@ -92,6 +92,29 @@ def test_expired_server_session_is_unauthenticated(client, app):
         db.session.commit()
 
     assert client.get("/api/v1/auth/session").status_code == 401
+
+
+def test_session_activity_refreshes_idle_expiry_without_extending_absolute_expiry(client, app):
+    login(client)
+    session_id = client.get_cookie("csft_session").value
+    sid_hash = hashlib.sha256(f"csft:{session_id}".encode()).hexdigest()
+    now = datetime.now(UTC)
+    old_idle_expiry = now + timedelta(minutes=1)
+    absolute_expiry = now + timedelta(minutes=5)
+    with app.app_context():
+        record = db.session.get(ServerSession, sid_hash)
+        payload = json.loads(record.data)
+        payload["_absolute_expires_at"] = absolute_expiry.isoformat()
+        record.data = json.dumps(payload).encode()
+        record.expiry = old_idle_expiry
+        db.session.commit()
+
+    assert client.get("/api/v1/auth/session").status_code == 200
+
+    with app.app_context():
+        record = db.session.get(ServerSession, sid_hash)
+        assert record.expiry.replace(tzinfo=UTC) == absolute_expiry
+        assert json.loads(record.data)["_absolute_expires_at"] == absolute_expiry.isoformat()
 
 
 def test_login_requires_csrf_and_rate_limits_failures(client):

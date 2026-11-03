@@ -156,11 +156,14 @@ def _parse_list_filters():
 
 def _page_response(filters, page: int, page_size: int):
     total = db.session.scalar(select(func.count()).select_from(Finding).where(*filters)) or 0
+    offset = (page - 1) * page_size
+    if offset >= total:
+        return jsonify(items=[], **pagination(page, page_size, total))
     items = db.session.scalars(
         select(Finding)
         .where(*filters)
         .order_by(Finding.observed_at.desc(), Finding.id.desc())
-        .offset((page - 1) * page_size)
+        .offset(offset)
         .limit(page_size)
     ).all()
     return jsonify(
@@ -292,9 +295,12 @@ def list_notes(finding_id: str):
     total = db.session.scalar(
         select(func.count()).select_from(FindingNote).where(FindingNote.finding_id == parsed_id)
     )
+    offset = (page - 1) * page_size
+    if offset >= total:
+        return jsonify(items=[], **pagination(page, page_size, total))
     rows = db.session.execute(
         query.order_by(FindingNote.created_at.asc(), FindingNote.id.asc())
-        .offset((page - 1) * page_size)
+        .offset(offset)
         .limit(page_size)
     ).all()
     return jsonify(
@@ -370,9 +376,12 @@ def list_history(finding_id: str):
     total = db.session.scalar(
         select(func.count()).select_from(AuditEvent).where(AuditEvent.finding_id == parsed_id)
     )
+    offset = (page - 1) * page_size
+    if offset >= total:
+        return jsonify(items=[], **pagination(page, page_size, total))
     rows = db.session.execute(
         query.order_by(AuditEvent.occurred_at.asc(), AuditEvent.id.asc())
-        .offset((page - 1) * page_size)
+        .offset(offset)
         .limit(page_size)
     ).all()
     return jsonify(

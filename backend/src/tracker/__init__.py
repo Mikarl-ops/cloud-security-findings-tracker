@@ -8,7 +8,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 from argon2 import PasswordHasher
-from flask import Flask, current_app, g
+from flask import Flask, current_app, g, request
 from flask_wtf.csrf import CSRFError
 from werkzeug.exceptions import HTTPException
 
@@ -123,8 +123,12 @@ def create_app(test_config: dict | None = None) -> Flask:
     def handle_unexpected_error(error: Exception):
         if isinstance(error, HTTPException):
             return handle_http_error(error)
-        current_app.logger.exception(
-            "Unhandled API error request_id=%s", getattr(g, "request_id", "unknown")
+        # Exception messages can contain driver details or submitted values.
+        current_app.logger.error(
+            "Unhandled API error request_id=%s endpoint=%s error_type=%s",
+            getattr(g, "request_id", "unknown"),
+            request.endpoint,
+            type(error).__name__,
         )
         db.session.rollback()
         return problem(500, "Internal server error", "The request could not be completed.")
