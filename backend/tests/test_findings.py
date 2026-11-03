@@ -93,24 +93,30 @@ def test_resolution_requires_reason_and_invalid_transition_is_rejected(client, a
     assert not_allowed.status_code == 422
 
 
-def test_note_and_audit_event_roll_back_together(client, app):
+def test_note_and_audit_event_roll_back_together(client, app, caplog):
     login(client)
     token = csrf_token(client)
+    body = "Synthetic sensitive note that must roll back."
 
     def reject_audit(_mapper, _connection, _target):
-        raise RuntimeError("test-only audit failure")
+        raise RuntimeError(f"test-only audit failure for {body}")
 
     event.listen(AuditEvent, "before_insert", reject_audit)
     try:
         response = client.post(
             f"/api/v1/findings/{app.config['TEST_FINDING_ID']}/notes",
-            json={"body": "This note must roll back."},
+            json={"body": body},
             headers={"X-CSRFToken": token},
         )
     finally:
         event.remove(AuditEvent, "before_insert", reject_audit)
 
     assert response.status_code == 500
+    assert response.headers["X-Request-ID"] in caplog.text
+    assert "endpoint=findings.add_note error_type=RuntimeError" in caplog.text
+    for sensitive in (body, "test-only audit failure", token):
+        assert sensitive not in caplog.text
+        assert sensitive not in response.get_data(as_text=True)
     with app.app_context():
         assert db.session.scalar(select(func.count()).select_from(FindingNote)) == 0
 

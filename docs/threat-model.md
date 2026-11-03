@@ -47,7 +47,7 @@ The browser, request parameters, finding text, notes, and session cookie are unt
 | SQL injection or malformed input | Data exposure, modification, or service failure | Use SQLAlchemy parameterized queries; validate type, length, enum, time ranges, pagination, and JSON size; reject unsupported content types and oversized bodies | API validation and database integration tests |
 | Resource exhaustion | Slow queries, large responses, or login flood | Bounded page size (maximum 100), bounded request body (16 KiB), bounded note length (4,000 characters), database timeouts, login throttling, and rate limits at the edge if public | Limit-boundary tests and load limits reviewed before deployment |
 | Audit history tampering or misleading records | Loss of investigation accountability | Write finding changes and audit events in one transaction; do not expose update/delete routes for audit events; runtime database role receives read/insert only for audit records; record actor, time, event type, finding ID, and safe changed fields | Tests verify rollback on audit failure and reject audit mutation |
-| Secret or sensitive telemetry leakage | Account compromise or privacy harm | .env is ignored; no secret defaults; full-history Gitleaks scan with redacted output; only synthetic records are accepted; do not log credentials, session IDs, note bodies, or raw request bodies | CI secret scan and tracked-file validation; detailed logging review remains release work |
+| Secret or sensitive telemetry leakage | Account compromise or privacy harm | .env is ignored; no secret defaults; full-history Gitleaks scan with redacted output; only synthetic records are accepted; do not log credentials, session IDs, note bodies, or raw request bodies | CI secret scan, tracked-file validation, and a failed-write test that checks logs and responses for sensitive values |
 | Misleading synthetic alert presented as real | Incorrect security conclusions | Label the environment and sample records synthetic; document data provenance and limitations; no claims of production detection | README and sample-data review |
 
 ## Data-handling rules
@@ -55,7 +55,7 @@ The browser, request parameters, finding text, notes, and session cookie are unt
 - Seed data must be fabricated and clearly labeled synthetic. Never copy real CloudTrail, GuardDuty, identity, or incident records.
 - Findings and notes are plain text; no HTML or Markdown rendering is accepted in the first version.
 - Logs may include request ID, actor ID, operation, object ID, status code, and duration. Do not log passwords, cookies, session tokens, note contents, database URLs, or secret values.
-- Errors exposed to clients are generic and structured; stack traces and SQL messages stay in server logs.
+- API errors use structured responses with a request ID. The application error handler logs that ID, the registered endpoint, and the exception type. It omits exception messages and tracebacks because driver and validation errors can include sensitive values.
 - A retention period for findings, notes, audit events, and session rows must be agreed before any real deployment.
 
 ## Residual risks and follow-up
