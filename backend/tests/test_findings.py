@@ -1,5 +1,6 @@
 """Authorization, filtering, status workflow, notes, and audit behavior."""
 
+import pytest
 from sqlalchemy import event, func, select
 
 from conftest import csrf_token, login
@@ -118,3 +119,46 @@ def test_invalid_filters_and_pagination_are_bounded(client):
     login(client, "viewer")
     assert client.get("/api/v1/findings?unknown=value").status_code == 400
     assert client.get("/api/v1/findings?page_size=101").status_code == 400
+    assert client.get("/api/v1/findings?observed_from=2026-01-14T08:30:00").status_code == 400
+    assert client.get(
+        "/api/v1/findings?observed_from=2026-01-15T00:00:00Z&observed_to=2026-01-14T00:00:00Z"
+    ).status_code == 400
+
+
+def test_out_of_range_page_returns_empty_results(client, app):
+    login(client)
+    finding_url = f"/api/v1/findings/{app.config['TEST_FINDING_ID']}"
+    page = 10**30
+
+    for path in ("/api/v1/findings", f"{finding_url}/notes", f"{finding_url}/history"):
+        response = client.get(path, query_string={"page": page, "page_size": 100})
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload["items"] == []
+        assert payload["page"] == page
+
+
+@pytest.mark.parametrize(
+    ("body", "content_type", "expected"),
+    [
+        ('{"body":"valid"}', "text/plain", 415),
+        ('{"body":', "application/json", 400),
+        ('["not an object"]', "application/json", 422),
+        ('{"body":"' + "x" * (16 * 1024) + '"}', "application/json", 413),
+    ],
+)
+def test_note_rejects_invalid_request_bodies(client, app, body, content_type, expected):
+    login(client)
+    response = client.post(
+        f"/api/v1/findings/{app.config['TEST_FINDING_ID']}/notes",
+        data=body,
+        content_type=content_type,
+        headers={"X-CSRFToken": csrf_token(client)},
+    )
+
+    assert response.status_code == expected
+    assert response.mimetype == "application/problem+json"
+    assert response.get_json()["request_id"] == response.headers["X-Request-ID"]
+    with app.app_context():
+        assert db.session.scalar(select(func.count()).select_from(FindingNote)) == 0
+        assert db.session.scalar(select(func.count()).select_from(AuditEvent)) == 0
