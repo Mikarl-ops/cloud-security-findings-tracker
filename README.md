@@ -58,6 +58,8 @@ The API container applies database migrations and loads the documented synthetic
 
 The Vite development server proxies `/api` requests to the API, so the browser uses same-origin session cookies and CSRF protection during local development.
 
+Use the [investigation playbook](docs/investigation-playbook.md) to triage a seeded finding, record a decision, and review the audit trail as a viewer.
+
 ## Automated checks
 
 The [quality workflow](.github/workflows/ci.yml) tests both applications, the default development stack, and the production images through local HTTPS and database TLS with restricted runtime permissions. The [security workflow](.github/workflows/security.yml) runs Bandit, pip-audit for development and production locks, npm audit, Gitleaks, and Trivy for all five development/production/database image variants. Actions use pinned commits and read-only repository access. The active `Protect main` ruleset requires a pull request and all eleven checks before merging. See the [check policy](docs/ci-security.md) for reproduction, thresholds, exceptions, and enforced merge settings.
