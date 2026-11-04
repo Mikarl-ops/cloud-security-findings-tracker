@@ -59,6 +59,7 @@ The API container applies database migrations and loads the documented synthetic
 The Vite development server proxies `/api` requests to the API, so the browser uses same-origin session cookies and CSRF protection during local development.
 
 Use the [investigation playbook](docs/investigation-playbook.md) to triage a seeded finding, record a decision, and review the audit trail as a viewer.
+The [portfolio walkthrough](docs/portfolio-walkthrough.md) shows that workflow in the browser and includes a short demo script.
 
 ## Automated checks
 
