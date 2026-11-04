@@ -22,6 +22,7 @@ The project uses synthetic sample data only. It does not ingest real telemetry, 
 - [Deployment prerequisites, costs, and retention](docs/deployment.md)
 - [Production images and local HTTPS verification](docs/production-images.md)
 - [Production serving and proxy decisions](docs/decisions/0004-production-serving-and-local-tls.md)
+- [Local release checklist and verification record](docs/release-checklist.md)
 
 ## Repository structure
 
@@ -76,5 +77,5 @@ Never commit `.env`, passwords, session secrets, real findings, or production te
 3. Dashboard and local Docker Compose workflow — merged and exercised in CI
 4. Pull-request CI, tests, and security checks — merged
 5. Terraform and optional ECS Fargate path — configuration, production serving images, and local validation prepared; live prerequisites remain
-6. Security scenarios, documentation, and portfolio walkthrough
+6. Security scenarios, documentation, and portfolio walkthrough — see the [local release verification](docs/release-checklist.md)
 
