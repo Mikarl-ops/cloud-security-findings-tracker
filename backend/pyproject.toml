@@ -22,7 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 production = [
-  "gunicorn>=26.2.0,<27",
+  "gunicorn>=26.2.0,<28",
 ]
 dev = [
   "pytest>=8,<10",
